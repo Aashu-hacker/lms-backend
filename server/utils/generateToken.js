@@ -1,12 +1,17 @@
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
+require('dotenv').config({ path: '../.env' });
 
-const JWT_SECRET = "my_super_secret_key_123";
 const generateToken = (user) => {
+  const JWT_SECRET = 'mySuperSecureJWTSecret123';
   return jwt.sign(
-    { id: user._id, role: user.role },
-    JWT_SECRET,
-    { expiresIn: '1d' }
+    {
+      id: user._id,     // MUST be id
+      role: user.role
+    },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: '7d'
+    }
   );
 };
 

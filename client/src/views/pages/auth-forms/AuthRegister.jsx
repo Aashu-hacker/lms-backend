@@ -20,6 +20,8 @@ import Box from '@mui/material/Box';
 import AnimateButton from 'ui-component/extended/AnimateButton';
 import CustomFormControl from 'ui-component/extended/Form/CustomFormControl';
 import { strengthColor, strengthIndicator } from 'utils/password-strength';
+import REACT_APP_BASE_URL from 'utils/api';
+
 
 // assets
 import Visibility from '@mui/icons-material/Visibility';
@@ -89,8 +91,7 @@ export default function AuthRegister() {
         password_confirmation: form.password_confirmation
       };
 
-      const res = await axios.post('http://localhost:5
-      000/api/auth/register', payload);
+      const res = await axios.post(`${REACT_APP_BASE_URL}/auth/register`, payload);
 
       alert(res.data.message);
 

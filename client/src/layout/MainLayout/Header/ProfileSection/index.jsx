@@ -75,8 +75,8 @@ export default function ProfileSection() {
 
   const handleLogout = () => {
     // clear auth data
-    localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('token');
 
     // redirect to login
     navigate('/');

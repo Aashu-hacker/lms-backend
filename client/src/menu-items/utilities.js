@@ -9,6 +9,18 @@ const icons = {
   IconWindmill
 };
 
+// 👇 function to get user safely
+const getUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem('user'));
+  } catch {
+    return null;
+  }
+};
+
+const user = getUser();
+const role = user?.role || null;
+
 // ==============================|| UTILITIES MENU ITEMS ||============================== //
 
 const utilities = {
