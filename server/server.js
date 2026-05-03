@@ -10,9 +10,27 @@ const app = express();
 // TRUST PROXY (important on Render sometimes)
 app.set("trust proxy", 1);
 
-// CORS CONFIG
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://lms-frontend-zjp6.onrender.com"
+];
+
+app.use((req, res, next) => {
+  console.log("Origin:", req.headers.origin);
+  console.log("Method:", req.method);
+  next();
+});
+
 const corsOptions = {
-  origin: ["http://localhost:5173", "https://lms-frontend-zjp6.onrender.com"],
+  origin: function (origin, callback) {
+    console.log("CORS Origin:", origin);
+
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
