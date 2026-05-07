@@ -31,7 +31,6 @@ exports.getProjects = async (req, res) => {
       .populate('createdBy', 'name email')
       .populate('manager', 'name email')
       .populate('analysts', 'name email')
-      .populate('clients', 'name email')
       .sort({ createdAt: -1 });
 
     res.json(projects);
