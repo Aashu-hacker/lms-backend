@@ -31,7 +31,7 @@ router.post(
 router.get(
   '/',
   auth,
-  role('admin'),
+  role('admin', 'manager'),
   getUsers
 );
 
@@ -39,7 +39,7 @@ router.get(
 router.get(
   '/:id',
   auth,
-  role('admin'),
+  role('admin', 'manager'),
   getUserById
 );
 
