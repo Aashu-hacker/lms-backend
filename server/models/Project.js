@@ -47,6 +47,12 @@ const projectSchema = new mongoose.Schema(
       }
     ],
 
+    priority:{
+      type: String,
+      enum: ['Low', 'Medium', 'High'],
+      default: 'Medium'
+    },
+
     progress: {
       type: Number,
       default: 0

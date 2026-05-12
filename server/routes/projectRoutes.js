@@ -6,6 +6,11 @@ const {
   getProjectById,
   updateProject,
   deleteProject,
+  getProjectVersion,
+  addProjectVersion,
+  deleteProjectVersion,
+  archiveProjectVersion,
+  notifyProjectVersion,
 } = require("../controllers/projectController");
 
 const auth = require("../middleware/authMiddleware");
@@ -27,5 +32,43 @@ router.put("/:id", auth, role("admin", "manager"), updateProject);
 
 // Delete
 router.delete("/:id", auth, role("admin"), deleteProject);
+
+router.get(
+  "/:projectId/versions",
+  auth,
+  role("admin", "manager", "analyst"),
+  getProjectVersion,
+);
+
+router.post(
+  "/:projectId/versions",
+  auth,
+  role("admin", "manager", "analyst"),
+  addProjectVersion,
+);
+
+// DELETE VERSION
+router.delete(
+  "/:id/versions/:versionId",
+  auth,
+  role("admin", "manager", "analyst"),
+  deleteProjectVersion,
+);
+
+// ARCHIVE VERSION
+router.put(
+  "/:id/versions/:versionId/archive",
+  auth,
+  role("admin", "manager", "analyst"),
+  archiveProjectVersion,
+);
+
+// NOTIFY ADMIN
+router.put(
+  "/:id/versions/:versionId/notify",
+  auth,
+  role("admin", "manager", "analyst"),
+  notifyProjectVersion,
+);
 
 module.exports = router;
