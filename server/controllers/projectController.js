@@ -459,7 +459,7 @@ exports.deleteProjectVersion = async (req, res) => {
 
     const { id: projectId, versionId } = req.params;
 
-    if (!["admin", "manager"].includes(req.user.role)) {
+    if (!["admin", "manager", "analyst"].includes(req.user.role)) {
       await session.abortTransaction();
       session.endSession();
 
