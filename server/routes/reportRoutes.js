@@ -1,22 +1,115 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const ComprehensiveReport = require('../models/ReportVersion');
+const ComprehensiveReport = require("../models/ReportVersion");
+
+// ==========================================
+// 1. READ ALL REPORTS (Drafts / Lists)
+// ==========================================
+router.get("/", async (req, res) => {
+  try {
+    const { status, analyst, search } = req.query;
+    let queryFilter = {};
+
+    // 1. Dynamic Filtering Conditions
+    if (status && status !== "All") {
+      queryFilter["status"] = status;
+    }
+
+    if (analyst) {
+      queryFilter["header.analystName"] = new RegExp(analyst, "i");
+    }
+
+    // Optional global search shortcut parsing parameter string checks
+    if (search) {
+      queryFilter["$or"] = [
+        { reportName: new RegExp(search, "i") },
+        { versionId: new RegExp(search, "i") },
+        { "header.analystName": new RegExp(search, "i") },
+      ];
+    }
+
+    // 2. Database Fetch Optimization
+    const reports = await ComprehensiveReport.find(queryFilter)
+      .sort({ updatedAt: -1 })
+      // CRITICAL UPDATE: Included "projectId" in the select list.
+      // Without selecting projectId, your DataGrid actions (Edit/Preview/Delete) will fail due to undefined parameters.
+      .select(
+        "projectId reportName versionId status updatedAt header.analystName",
+      )
+      .lean();
+
+    // 3. High-Fidelity MUI DataGrid Mapping Layer
+    // Generates a guaranteed unique string 'id' per item row index tracking target
+    const reportsWithDataGridKeys = reports.map((report) => ({
+      ...report,
+      id: report._id
+        ? report._id.toString()
+        : `${report.projectId}_${report.versionId}`,
+    }));
+
+    return res.status(200).json(reportsWithDataGridKeys);
+  } catch (err) {
+    console.error("Master catalog retrieval error trace:", err);
+    return res.status(500).json({
+      success: false,
+      error: "Database retrieval exception across report iteration streams",
+      detail: err.message,
+    });
+  }
+});
+
+// ==========================================
+// 2. READ SINGLE REPORT BY VERSION ID
+// ==========================================
+router.get("/:versionId", async (req, res) => {
+  try {
+    const report = await ComprehensiveReport.findOne({
+      versionId: req.params.versionId,
+    });
+    if (!report) {
+      return res.status(404).json({
+        success: false,
+        error: "Requested report document version not found",
+      });
+    }
+    res.status(200).json(report);
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: "Internal server read error",
+      detail: err.message,
+    });
+  }
+});
 
 // ==========================================================
 // 1. GET DETAILS BY ID & VERSION (Initial Data Loading)
 // ==========================================================
-router.get('/:id/versions/:versionId', async (req, res) => {
+router.get("/:id/versions/:versionId", async (req, res) => {
   try {
     const { id, versionId } = req.params;
-    const report = await ComprehensiveReport.findOne({ projectId: id, versionId });
+    const report = await ComprehensiveReport.findOne({
+      projectId: id,
+      versionId,
+    });
 
     if (!report) {
       // Return clean fallback defaults so frontend state initialization works smoothly
       return res.status(200).json({
-        reportName: 'New Dynamic Report Workspace',
-        header: { logo: '', title: '', subTitle: '', analystName: '', date: new Date().toISOString().split('T')[0] },
-        footer: { text: 'Bionivid Analytical Sequence Output — All Rights Reserved.', pageNumbering: true, confidentialTag: true },
-        sections: []
+        reportName: "New Dynamic Report Workspace",
+        header: {
+          logo: "",
+          title: "",
+          subTitle: "",
+          analystName: "",
+          date: new Date().toISOString().split("T")[0],
+        },
+        footer: {
+          text: "Bionivid Analytical Sequence Output — All Rights Reserved.",
+          pageNumbering: true,
+          confidentialTag: true,
+        },
+        sections: [],
       });
     }
     return res.status(200).json(report);
@@ -28,7 +121,7 @@ router.get('/:id/versions/:versionId', async (req, res) => {
 // ==========================================================
 // 2. PUT (SAVE / UPDATE) REPORT BY ID & VERSION
 // ==========================================================
-router.put('/:id/versions/:versionId', async (req, res) => {
+router.put("/:id/versions/:versionId", async (req, res) => {
   try {
     const { id, versionId } = req.params;
     const { reportName, header, footer, sections, status } = req.body;
@@ -42,22 +135,22 @@ router.put('/:id/versions/:versionId', async (req, res) => {
           header,
           footer,
           sections,
-          status: status || "Draft"
-        }
+          status: status || "Draft",
+        },
       },
-      { new: true, upsert: true, runValidators: true }
+      { new: true, upsert: true, runValidators: true },
     );
 
     return res.status(200).json({
       success: true,
       message: "Workspace saved and synchronized successfully",
-      data: updatedReport
+      data: updatedReport,
     });
   } catch (err) {
     return res.status(500).json({
       success: false,
       error: "Update engine operational exception",
-      detail: err.message
+      detail: err.message,
     });
   }
 });
@@ -65,13 +158,21 @@ router.put('/:id/versions/:versionId', async (req, res) => {
 // ==========================================================
 // 3. DELETE SPECIFIC VERSION INSTANCE
 // ==========================================================
-router.delete('/:id/versions/:versionId', async (req, res) => {
+router.delete("/:id/versions/:versionId", async (req, res) => {
   try {
     const { id, versionId } = req.params;
-    const deleted = await ComprehensiveReport.findOneAndDelete({ projectId: id, versionId });
-    if (!deleted) return res.status(404).json({ success: false, error: "Report version targets not found" });
-    
-    return res.status(200).json({ success: true, message: "Version dropped successfully" });
+    const deleted = await ComprehensiveReport.findOneAndDelete({
+      projectId: id,
+      versionId,
+    });
+    if (!deleted)
+      return res
+        .status(404)
+        .json({ success: false, error: "Report version targets not found" });
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Version dropped successfully" });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
@@ -80,13 +181,21 @@ router.delete('/:id/versions/:versionId', async (req, res) => {
 // ==========================================================
 // 4. VERSION IMPORT WORKFLOW (Cloning Entry Logic)
 // ==========================================================
-router.post('/import-version', async (req, res) => {
+router.post("/import-version", async (req, res) => {
   try {
-    const { sourceVersionId, targetVersionId, newReportName, importOptions } = req.body;
+    const { sourceVersionId, targetVersionId, newReportName, importOptions } =
+      req.body;
 
-    const sourceReport = await ComprehensiveReport.findOne({ versionId: sourceVersionId });
+    const sourceReport = await ComprehensiveReport.findOne({
+      versionId: sourceVersionId,
+    });
     if (!sourceReport) {
-      return res.status(404).json({ success: false, error: "Source reference baseline version not found." });
+      return res
+        .status(404)
+        .json({
+          success: false,
+          error: "Source reference baseline version not found.",
+        });
     }
 
     let importedPayload = {
@@ -94,7 +203,7 @@ router.post('/import-version', async (req, res) => {
       versionId: targetVersionId,
       reportName: newReportName || `${sourceReport.reportName} - Clone`,
       status: "Draft",
-      sections: []
+      sections: [],
     };
 
     if (importOptions.headerFooter) {
@@ -126,13 +235,13 @@ router.post('/import-version', async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Historical data parsed and cloned successfully",
-      data: compiledClone
+      data: compiledClone,
     });
   } catch (err) {
     return res.status(500).json({
       success: false,
       error: "Version cloning engine execution error",
-      detail: err.message
+      detail: err.message,
     });
   }
 });
