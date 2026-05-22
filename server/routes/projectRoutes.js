@@ -11,6 +11,7 @@ const {
   deleteProjectVersion,
   archiveProjectVersion,
   notifyProjectVersion,
+  getReportDetails,
 } = require("../controllers/projectController");
 
 const auth = require("../middleware/authMiddleware");
@@ -69,6 +70,13 @@ router.put(
   auth,
   role("admin", "manager", "analyst"),
   notifyProjectVersion,
+);
+
+router.get(
+  "/:id/versions/:versionId",
+  auth,
+  role("admin", "manager", "analyst"),
+  getReportDetails,
 );
 
 module.exports = router;

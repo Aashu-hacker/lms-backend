@@ -2,6 +2,7 @@
 const mongoose = require("mongoose");
 const Project = require("../models/Project");
 const ProjectVersion = require("../models/ProjectVersion");
+const ComprehensiveReport = require('../models/ReportVersion');
 const Block = require("../models/Block");
 const createNotification = require("../utils/createNotification");
 
@@ -616,3 +617,48 @@ exports.notifyProjectVersion = async (req, res) => {
     });
   }
 };
+
+
+exports.getReportDetails = async (req,res) => {
+  try {
+    const { id, versionId } = req.params;
+
+    // Find the report that matches both the projectId and specific versionId
+    const report = await ComprehensiveReport.findOne({ 
+      projectId: id, 
+      versionId: versionId 
+    });
+
+    // If no report matches, return a structured default schema so the frontend doesn't break
+    if (!report) {
+      return res.status(200).json({
+        reportName: 'New Dynamic Report Workspace',
+        header: {
+          logo: '',
+          title: '',
+          subTitle: '',
+          analystName: '',
+          date: new Date().toISOString().split('T')[0]
+        },
+        footer: {
+          text: 'Bionivid Analytical Sequence Output — All Rights Reserved.',
+          pageNumbering: true,
+          confidentialTag: true
+        },
+        sections: [] // Empty section card framework ready for additions
+      });
+    }
+
+    // Return the found layout document configuration mapping
+    return res.status(200).json(report);
+
+  } catch (err) {
+    console.error("Error inside getReportDetails controller:", err);
+    return res.status(500).json({ 
+      success: false, 
+      error: "Internal server error while fetching workspace configuration layout details.",
+      detail: err.message 
+    });
+  }
+};
+
