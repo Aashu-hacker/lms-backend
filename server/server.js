@@ -81,7 +81,11 @@ app.use(cors(corsOptions));
 // HANDLE PREFLIGHT EXPLICITLY
 app.options(/.*/, cors(corsOptions));
 
-app.use(express.json());
+// Increase limit for JSON requests (where your Base64 layout string is sent)
+app.use(express.json({ limit: '50mb' }));
+
+// Increase limit for URL-encoded form submissions (just in case)
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // ROUTES
 app.use("/api/auth", require("./routes/authRoutes"));

@@ -190,12 +190,10 @@ router.post("/import-version", async (req, res) => {
       versionId: sourceVersionId,
     });
     if (!sourceReport) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          error: "Source reference baseline version not found.",
-        });
+      return res.status(404).json({
+        success: false,
+        error: "Source reference baseline version not found.",
+      });
     }
 
     let importedPayload = {
@@ -268,51 +266,70 @@ router.get("/:versionId/preview", async (req, res) => {
             let nodePayload = "";
 
             if (el.type === "text") {
-              nodePayload = `<p style="margin:0; font-size:14px; line-height:1.6; white-space:pre-wrap;">${el.textContent}</p>`;
+              // --- FORMATTING TOOLBAR INLINE STYLE COMPLIANCE BUILDER ---
+              let inlineStyleStyles = `
+            margin: 0; 
+            font-size: 14px; 
+            line-height: 1.6; 
+            white-space: pre-wrap;
+            text-align: ${el.imageAlignment?.toLowerCase() || "left"};
+            font-weight: ${el.isBold ? "bold" : "normal"};
+            font-style: ${el.isItalic ? "italic" : "normal"};
+          `.trim();
+
+              nodePayload = el.isBullet
+                ? `<ul style="margin:0; padding-left:20px;"><li style="${inlineStyleStyles}">${el.textContent}</li></ul>`
+                : `<p style="${inlineStyleStyles}">${el.textContent}</p>`;
             } else if (el.type === "image") {
+              // --- FIX FOR BROKEN BLOB PREVIEWS ---
+              // Falls back to a clean data graphic placeholder if the URL state is missing or empty
+              let resolvedImgSource =
+                el.imageUrl ||
+                "https://via.placeholder.com/400x200?text=No+Data+Graphic";
+
               nodePayload = `
-            <div style="text-align: ${el.imageAlignment?.toLowerCase() || "center"};">
-              <img src="${el.imageUrl || "https://via.placeholder.com/400x200?text=No+Data+Graphic"}" style="max-width:100%; height:auto; border-radius:4px;" />
-              ${el.imageLegend ? `<div class="legend-box" style="font-size:11px; font-style:italic; color:#4a5568; margin-top:4px;"><b>${el.imageLegend}</b></div>` : ""}
-              ${el.imageDescription ? `<p style="font-size:12px; color:#718096; margin-top:2px;">${el.imageDescription}</p>` : ""}
-            </div>`;
+              <div style="text-align: ${el.imageAlignment?.toLowerCase() || "center"}; width: 100%;">
+                <img src="${resolvedImgSource}" style="max-width:100%; height:auto; border-radius:4px; display:inline-block;" />
+                ${el.imageLegend ? `<div class="legend-box" style="font-size:11px; font-style:italic; color:#4a5568; margin-top:4px;"><b>${el.imageLegend}</b></div>` : ""}
+                ${el.imageDescription ? `<p style="font-size:12px; color:#718096; margin-top:2px;">${el.imageDescription}</p>` : ""}
+              </div>`;
             } else if (el.type === "table") {
               let rowsMarkup = el.tableData
                 .map(
                   (row, rIdx) => `
-            <tr style="background: ${rIdx === 0 ? "#f7fafc" : "transparent"}; font-weight: ${rIdx === 0 ? "bold" : "normal"}; border-bottom: 1px solid #e2e8f0;">
-              ${row.map((cell) => `<td style="padding: 8px; border: 1px solid #cbd5e0; text-align:center;">${cell || ""}</td>`).join("")}
+            <tr style="background: ${rIdx === 0 ? "#f1f5f9" : "transparent"}; font-weight: ${rIdx === 0 ? "bold" : "normal"}; border-bottom: 1px solid #e2e8f0;">
+              ${row.map((cell) => `<td style="padding: 6px 8px; border: 1px solid #cbd5e0; text-align:center; color:#334155;">${cell || ""}</td>`).join("")}
             </tr>`,
                 )
                 .join("");
 
               nodePayload = `
-            <div style="width:100%; height:100%; overflow-x:auto;">
-              <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:6px;">${rowsMarkup}</table>
-              ${el.tableLegend ? `<div style="font-size:11px; font-style:italic; color:#4a5568;"><b>${el.tableLegend}</b></div>` : ""}
-              ${el.tableDescription ? `<p style="font-size:12px; color:#718096; margin:0;">${el.tableDescription}</p>` : ""}
-            </div>`;
+          <div style="width:100%; height:100%; overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:6px;">${rowsMarkup}</table>
+            ${el.tableLegend ? `<div style="font-size:11px; font-style:italic; color:#4a5568;"><b>${el.tableLegend}</b></div>` : ""}
+            ${el.tableDescription ? `<p style="font-size:12px; color:#718096; margin:0;">${el.tableDescription}</p>` : ""}
+          </div>`;
             }
 
             // Return element structural box with absolute dimensions scaled to preview scale matrix definitions
             return `
-          <div style="position: absolute; left: ${el.x}px; top: ${el.y}px; width: ${el.w}px; height: ${el.h}px; z-index: ${el.zIndex}; overflow: hidden;">
-            ${nodePayload}
-          </div>`;
+        <div style="position: absolute; left: ${el.x}px; top: ${el.y}px; width: ${el.w}px; height: ${el.h}px; z-index: ${el.zIndex}; overflow: hidden; box-sizing: border-box; padding: 4px;">
+          ${nodePayload}
+        </div>`;
           })
           .join("");
 
         return `
-        <div class="report-card" style="background:#ffffff; margin-bottom:40px; padding:30px; border-radius:8px; border-top: 6px solid #1a365d; box-shadow: 0 4px 6px rgba(0,0,0,0.05); position:relative; min-height:550px;">
-          <div class="section-meta-header" style="margin-bottom:20px; border-bottom: 2px solid #e2e8f0; padding-bottom:10px;">
-            <span style="font-size:11px; font-weight:bold; color:#3182ce; text-transform:uppercase;">SECTION MODULE #${sIdx + 1}</span>
-            <h3 style="margin:5px 0 2px 0; color:#2d3748; font-size:22px;">${sec.title || "Untitled Workspace Unit"}</h3>
-            ${sec.description ? `<p style="margin:0; font-size:13px; color:#718096; font-style:italic;">${sec.description}</p>` : ""}
-          </div>
-          <div class="preview-canvas-viewport" style="position:relative; width:100%; height:460px; background:#fcfdfd; border-radius:4px;">
-            ${elementLayers}
-          </div>
-        </div>`;
+    <div class="report-card" style="background:#ffffff; margin-bottom:40px; padding:30px; border-radius:8px; border-top: 6px solid #1a365d; box-shadow: 0 4px 6px rgba(0,0,0,0.05); position:relative; min-height:550px; box-sizing: border-box;">
+      <div class="section-meta-header" style="margin-bottom:20px; border-bottom: 2px solid #e2e8f0; padding-bottom:10px;">
+        <span style="font-size:11px; font-weight:bold; color:#3182ce; text-transform:uppercase;">SECTION MODULE #${sIdx + 1}</span>
+        <h3 style="margin:5px 0 2px 0; color:#2d3748; font-size:22px;">${sec.title || "Untitled Workspace Unit"}</h3>
+        ${sec.description ? `<p style="margin:0; font-size:13px; color:#718096; font-style:italic;">${sec.description}</p>` : ""}
+      </div>
+      <div class="preview-canvas-viewport" style="position:relative; width:100%; height:460px; background:#fcfdfd; border-radius:4px; overflow:hidden;">
+        ${elementLayers}
+      </div>
+    </div>`;
       })
       .join("");
 
