@@ -367,8 +367,8 @@ router.get("/:versionId/preview", async (req, res) => {
               </div>
 
               <div class="global-footer">
-                  <p style="margin: 0 0 5px 0; color: #4a5568; font-weight: 500;">${report.footer?.text || "Bionivid Analytical Sequence Output — All Rights Reserved."}</p>
-                  ${report.footer?.pageNumbering ? `<div style="font-size: 11px; color: #718096; font-weight: bold;">Continuous Page Index Sequencing Activated</div>` : ""}
+                  <p style="margin: 0 0 5px 0; color: #4a5568; font-weight: 500;">2026 — All Rights Reserved.</p>
+                  ${report.footer?.pageNumbering ? `` : ""}
               </div>
 
           </div>
