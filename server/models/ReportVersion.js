@@ -34,6 +34,7 @@ const ComprehensiveReportSchema = new mongoose.Schema({
   projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: true },
   versionId: { type: String, required: true, unique: true },
   reportName: { type: String, default: 'Untitled Enterprise Report Workspace Studio Output' },
+  status: { type: String, enum: ['draft', 'published', 'sent_back'], default: 'draft' },
   header: {
     logo: { type: String, default: '' },
     title: { type: String, default: '' },

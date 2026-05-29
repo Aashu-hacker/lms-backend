@@ -408,7 +408,7 @@ router.get("/:versionId/preview", async (req, res) => {
 router.put("/:id/versions/:versionId/publish", async (req, res) => {
   try {
     const { id, versionId } = req.params;
-    const loggedInUser = req.user;
+    const loggedInUser = req.body.user;
     const report = await ComprehensiveReport.findOne({
       projectId: id,
       versionId,
@@ -420,13 +420,13 @@ router.put("/:id/versions/:versionId/publish", async (req, res) => {
         message: "Report version not found",
       });
     }
-    if (report.status === "Published") {
+    if (report.status === "published") {
       return res.status(400).json({
         success: false,
         message: "Version already published",
       });
     }
-    // report.status = "Published";
+    report.status = "published";
     await report.save();
     const version = await ProjectVersion.findOneAndUpdate(
       {
@@ -434,6 +434,7 @@ router.put("/:id/versions/:versionId/publish", async (req, res) => {
       },
       {
         status: "published",
+        updatedBy: loggedInUser ? loggedInUser._id : null,
         isNotify: true,
       },
       {
@@ -441,8 +442,6 @@ router.put("/:id/versions/:versionId/publish", async (req, res) => {
       },
     );
 
-    console.log(version);
-    
     const project = await Project.findById(id)
       .populate("manager", "_id name")
       .populate("analysts", "_id name");
@@ -452,22 +451,26 @@ router.put("/:id/versions/:versionId/publish", async (req, res) => {
         message: "Project not found",
       });
     }
-    const users = [project.projectManager?._id, project.analyst?._id]
+    const users = [project.manager?._id, project.analysts?.map((a) => a._id)]
+      .flat()
       .filter(Boolean)
       .map(String);
 
     const uniqueUsers = [...new Set(users)];
     if (uniqueUsers.length) {
-      await createNotification({
+      console.log(uniqueUsers);
+      const data = await createNotification({
         users: uniqueUsers,
-        sender: loggedInUser,
+        sender: loggedInUser ? loggedInUser._id : null,
         project: id,
         type: "REPORT_PUBLISHED",
         message: `${report.reportName}
         (${report.versionId})
         has been published.`,
       });
+      console.log(data);
     }
+    
     return res.status(200).json({
       success: true,
       message: "Report version published successfully",
