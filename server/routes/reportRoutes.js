@@ -1,6 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const ComprehensiveReport = require("../models/ReportVersion");
+const ProjectVersion = require("../models/ProjectVersion");
+const Project = require("../models/Project");
+const createNotification = require("../utils/createNotification");
 
 // ==========================================
 // 1. READ ALL REPORTS (Drafts / Lists)
@@ -247,6 +250,22 @@ router.post("/import-version", async (req, res) => {
 // ========================================================
 // 7. GET LIVE HTML RENDER PREVIEW (Bionivid Layout Format)
 // ========================================================
+
+const getSectionHeight = (elements = []) => {
+  if (!elements.length) return 500;
+
+  const maxBottom = Math.max(
+    ...elements.map((el) => {
+      const y = el.y || 0;
+      const h = el.h || 120;
+
+      return y + h;
+    }),
+  );
+
+  return Math.max(maxBottom + 80, 500);
+};
+
 router.get("/:versionId/preview", async (req, res) => {
   try {
     const report = await ComprehensiveReport.findOne({
@@ -326,7 +345,7 @@ router.get("/:versionId/preview", async (req, res) => {
         <h3 style="margin:5px 0 2px 0; color:#2d3748; font-size:22px;">${sec.title || "Untitled Workspace Unit"}</h3>
         ${sec.description ? `<p style="margin:0; font-size:13px; color:#718096; font-style:italic;">${sec.description}</p>` : ""}
       </div>
-      <div class="preview-canvas-viewport" style="position:relative; width:100%; height:460px; background:#fcfdfd; border-radius:4px; overflow:hidden;">
+      <div class="preview-canvas-viewport" style="position:relative; width:100%; height:${getSectionHeight(sec.elements)}px; background:#fcfdfd; border-radius:4px; overflow:hidden;">
         ${elementLayers}
       </div>
     </div>`;
@@ -383,6 +402,86 @@ router.get("/:versionId/preview", async (req, res) => {
       .send(
         `<h3>Preview compilation execution failed fatally: ${err.message}</h3>`,
       );
+  }
+});
+
+router.put("/:id/versions/:versionId/publish", async (req, res) => {
+  try {
+    const { id, versionId } = req.params;
+    const loggedInUser = req.user;
+    const report = await ComprehensiveReport.findOne({
+      projectId: id,
+      versionId,
+    });
+
+    if (!report) {
+      return res.status(404).json({
+        success: false,
+        message: "Report version not found",
+      });
+    }
+    if (report.status === "Published") {
+      return res.status(400).json({
+        success: false,
+        message: "Version already published",
+      });
+    }
+    // report.status = "Published";
+    await report.save();
+    const version = await ProjectVersion.findOneAndUpdate(
+      {
+        _id: versionId,
+      },
+      {
+        status: "published",
+        isNotify: true,
+      },
+      {
+        new: true,
+      },
+    );
+
+    console.log(version);
+    
+    const project = await Project.findById(id)
+      .populate("manager", "_id name")
+      .populate("analysts", "_id name");
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found",
+      });
+    }
+    const users = [project.projectManager?._id, project.analyst?._id]
+      .filter(Boolean)
+      .map(String);
+
+    const uniqueUsers = [...new Set(users)];
+    if (uniqueUsers.length) {
+      await createNotification({
+        users: uniqueUsers,
+        sender: loggedInUser,
+        project: id,
+        type: "REPORT_PUBLISHED",
+        message: `${report.reportName}
+        (${report.versionId})
+        has been published.`,
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      message: "Report version published successfully",
+      data: {
+        reportVersion: report.versionId,
+        status: report.status,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+    });
   }
 });
 
