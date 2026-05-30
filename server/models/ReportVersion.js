@@ -1,27 +1,145 @@
 const mongoose = require('mongoose');
 
 const LayoutElementSchema = new mongoose.Schema({
-  id: { type: String, required: true },
-  type: { type: String, enum: ['text', 'image', 'table'], required: true },
-  x: { type: Number, default: 40 },
-  y: { type: Number, default: 120 },
-  w: { type: Number, default: 400 },
-  h: { type: Number, default: 220 },
-  zIndex: { type: Number, default: 1 },
-  
-  // Custom Content Matrix Layers Data fields mapping
-  textContent: { type: String, default: '' },
-  imageUrl: { type: String, default: '' },
-  imageLegend: { type: String, default: '' },
-  imageDescription: { type: String, default: '' },
-  imageAlignment: { type: String, enum: ['Left', 'Center', 'Right'], default: 'Center' },
-  
-  tableRowsCount: { type: Number, default: 3 },
-  tableColsCount: { type: Number, default: 3 },
-  tableData: { type: [[String]], default: [] },
-  tableLegend: { type: String, default: '' },
-  tableDescription: { type: String, default: '' }
-});
+
+  id: {
+    type: String,
+    required: true
+  },
+
+  type: {
+    type: String,
+    enum: ['text', 'image', 'table'],
+    required: true
+  },
+
+  x: {
+    type: Number,
+    default: 40
+  },
+
+  y: {
+    type: Number,
+    default: 120
+  },
+
+  w: {
+    type: Number,
+    default: 400
+  },
+
+  h: {
+    type: Number,
+    default: 220
+  },
+
+  zIndex: {
+    type: Number,
+    default: 1
+  },
+
+  /* TEXT */
+
+  textContent: {
+    type: String,
+    default: ''
+  },
+
+  fontFamily: {
+    type: String,
+    default: 'Arial'
+  },
+
+  fontSize: {
+    type: Number,
+    default: 13
+  },
+
+  fontColor: {
+    type: String,
+    default: '#000000'
+  },
+
+  highlightColor: {
+    type: String,
+    default: 'transparent'
+  },
+
+  isBold: {
+    type: Boolean,
+    default: false
+  },
+
+  isItalic: {
+    type: Boolean,
+    default: false
+  },
+
+  isUnderline: {
+    type: Boolean,
+    default: false
+  },
+
+  isBullet: {
+    type: Boolean,
+    default: false
+  },
+
+  /* IMAGE */
+
+  imageUrl: {
+    type: String,
+    default: ''
+  },
+
+  imageLegend: {
+    type: String,
+    default: ''
+  },
+
+  imageDescription: {
+    type: String,
+    default: ''
+  },
+
+  imageAlignment: {
+    type: String,
+    enum: [
+      'Left',
+      'Center',
+      'Right'
+    ],
+    default: 'Left'
+  },
+
+  /* TABLE */
+
+  tableRowsCount: {
+    type: Number,
+    default: 3
+  },
+
+  tableColsCount: {
+    type: Number,
+    default: 3
+  },
+
+  tableData: {
+    type: [[String]],
+    default: []
+  },
+
+  tableLegend: {
+    type: String,
+    default: ''
+  },
+
+  tableDescription: {
+    type: String,
+    default: ''
+  }
+
+})
 
 const CustomBuilderSectionSchema = new mongoose.Schema({
   id: { type: String, required: true },
