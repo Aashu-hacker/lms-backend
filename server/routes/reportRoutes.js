@@ -3,6 +3,7 @@ const router = express.Router();
 const ComprehensiveReport = require("../models/ReportVersion");
 const ProjectVersion = require("../models/ProjectVersion");
 const Project = require("../models/Project");
+const ReportComment = require("../models/ReportComment");
 const createNotification = require("../utils/createNotification");
 
 // ==========================================
@@ -470,7 +471,7 @@ router.put("/:id/versions/:versionId/publish", async (req, res) => {
       });
       console.log(data);
     }
-    
+
     return res.status(200).json({
       success: true,
       message: "Report version published successfully",
@@ -484,6 +485,79 @@ router.put("/:id/versions/:versionId/publish", async (req, res) => {
     return res.status(500).json({
       success: false,
       error: err.message,
+    });
+  }
+});
+
+router.get("/get-report-comments/:id/:versionId", async (req, res) => {
+  // console.log(req.params);
+  try {
+    const comments = await ReportComment.find({
+      projectId: req.params.id,
+      versionId: req.params.versionId,
+    })
+      .populate("createdBy", "name")
+      .populate("updatedBy", "name")
+      .sort({
+        createdAt: 1,
+      });
+    res.json(comments);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      message: err.message,
+    });
+  }
+});
+
+router.post("/report-comments", async (req, res) => {
+  try {
+    const comment = await ReportComment.create({
+      projectId: req.body.projectId,
+      versionId: req.body.versionId,
+      x: req.body.x,
+      y: req.body.y,
+      text: req.body.text,
+      image: req.body.image,
+      createdBy: req.body.user_id,
+      updatedBy: req.body.user_id,
+    });
+
+    res.json(comment);
+  } catch (err) {
+    res.status(500).json({
+      message: err.message,
+    });
+  }
+});
+
+router.put("/report-comments/:id", async (req, res) => {
+  try {
+    const comment = await ReportComment.findById(req.params.id);
+    if (!comment) {
+      return res.status(404).json({
+        message: "Comment not found",
+      });
+    }
+    if (req.body.text) {
+      comment.text = req.body.text;
+    }
+    if (req.body.status) {
+      comment.status = req.body.status;
+    }
+    if (req.body.image) {
+      comment.image = req.body.image;
+    }
+    comment.updatedBy = req.body.user_id;
+    comment.updatedAt = new Date();
+    await comment.save();
+    const updated = await ReportComment.findById(comment._id)
+      .populate("createdBy", "name")
+      .populate("updatedBy", "name");
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({
+      message: err.message,
     });
   }
 });

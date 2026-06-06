@@ -31,14 +31,14 @@ const allowedOrigins = [
 ];
 
 app.use((req, res, next) => {
-  console.log("Origin:", req.headers.origin);
-  console.log("Method:", req.method);
+  // console.log("Origin:", req.headers.origin);
+  // console.log("Method:", req.method);
   next();
 });
 
 const corsOptions = {
   origin: function (origin, callback) {
-    console.log("CORS Origin:", origin);
+    // console.log("CORS Origin:", origin);
 
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);

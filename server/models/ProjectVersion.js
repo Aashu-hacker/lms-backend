@@ -16,7 +16,7 @@ const projectVersionSchema = new mongoose.Schema(
 
         status: {
             type: String,
-            enum: ["draft", "published", "archived"],
+            enum: ["draft", "published", "archived", "sent_back"],
             default: "draft"
         },
 
