@@ -25,6 +25,7 @@ const notificationSchema = new mongoose.Schema(
         "PROJECT_UPDATED",
         "PROJECT_DELETED",
         "REPORT_PUBLISHED",
+        "REPORT_SENT_BACK",
         "GENERAL"
       ],
       default: "GENERAL"

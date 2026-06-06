@@ -427,6 +427,23 @@ router.put("/:id/versions/:versionId/publish", async (req, res) => {
         message: "Version already published",
       });
     }
+
+    const unresolvedComments = await ReportComment.countDocuments({
+      projectId: id,
+
+      versionId,
+
+      status: { $ne: "resolved" },
+    });
+
+    if (unresolvedComments) {
+      return res.status(400).json({
+        success: false,
+
+        message: "Resolve all comments before publishing",
+      });
+    }
+
     report.status = "published";
     await report.save();
     const version = await ProjectVersion.findOneAndUpdate(
@@ -558,6 +575,75 @@ router.put("/report-comments/:id", async (req, res) => {
   } catch (err) {
     res.status(500).json({
       message: err.message,
+    });
+  }
+});
+
+router.put("/:id/versions/:versionId/send-back", async (req, res) => {
+  try {
+    const { id, versionId } = req.params;
+    const loggedInUser = req.body.user;
+    const report = await ComprehensiveReport.findOne({
+      projectId: id,
+      versionId,
+    });
+
+    if (!report) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Report version not found" });
+    }
+
+    report.status = "sent_back";
+
+    await report.save();
+
+    await ProjectVersion.findByIdAndUpdate(
+      versionId,
+
+      {
+        status: "revision_required",
+
+        updatedBy: loggedInUser?._id,
+
+        isNotify: true,
+      },
+    );
+
+    const project = await Project.findById(id)
+      .populate("manager", "_id name")
+      .populate("analysts", "_id name");
+
+    if (project) {
+      const users = [project.analysts?.map((a) => a._id)]
+        .flat()
+        .filter(Boolean)
+        .map(String);
+
+      const uniqueUsers = [...new Set(users)];
+
+      if (uniqueUsers.length) {
+        await createNotification({
+          users: uniqueUsers,
+          sender: loggedInUser?._id,
+          project: id,
+          type: "REPORT_SENT_BACK",
+          message: `${report.reportName}
+                    (${report.versionId})
+                    has been sent back for changes.`,
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: "Report sent back successfully",
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
     });
   }
 });
