@@ -421,12 +421,12 @@ router.put("/:id/versions/:versionId/publish", async (req, res) => {
         message: "Report version not found",
       });
     }
-    if (report.status === "published") {
-      return res.status(400).json({
-        success: false,
-        message: "Version already published",
-      });
-    }
+    // if (report.status === "published") {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Version already published",
+    //   });
+    // }
 
     const unresolvedComments = await ReportComment.countDocuments({
       projectId: id,
