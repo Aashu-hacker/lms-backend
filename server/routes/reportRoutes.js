@@ -430,16 +430,13 @@ router.put("/:id/versions/:versionId/publish", async (req, res) => {
 
     const unresolvedComments = await ReportComment.countDocuments({
       projectId: id,
-
       versionId,
-
       status: { $ne: "resolved" },
     });
 
     if (unresolvedComments) {
       return res.status(400).json({
         success: false,
-
         message: "Resolve all comments before publishing",
       });
     }
