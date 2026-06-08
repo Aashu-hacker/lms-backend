@@ -9,10 +9,13 @@ const Project = require("../models/Project");
 const ReportComment = require("../models/ReportComment");
 const createNotification = require("../utils/createNotification");
 
+const auth = require("../middleware/authMiddleware");
+const role = require("../middleware/roleMiddleware");
+
 // ==========================================
 // 1. READ ALL REPORTS (Drafts / Lists)
 // ==========================================
-router.get("/", async (req, res) => {
+router.get("/", auth, role("admin", "manager", "analyst"), async (req, res) => {
   try {
     const { status, analyst, search } = req.query;
     let queryFilter = {};
@@ -68,188 +71,213 @@ router.get("/", async (req, res) => {
 // ==========================================
 // 2. READ SINGLE REPORT BY VERSION ID
 // ==========================================
-router.get("/:versionId", async (req, res) => {
-  try {
-    const report = await ComprehensiveReport.findOne({
-      versionId: req.params.versionId,
-    });
-    if (!report) {
-      return res.status(404).json({
+router.get(
+  "/:versionId",
+  auth,
+  role("admin", "manager", "analyst"),
+  async (req, res) => {
+    try {
+      const report = await ComprehensiveReport.findOne({
+        versionId: req.params.versionId,
+      });
+      if (!report) {
+        return res.status(404).json({
+          success: false,
+          error: "Requested report document version not found",
+        });
+      }
+      res.status(200).json(report);
+    } catch (err) {
+      res.status(500).json({
         success: false,
-        error: "Requested report document version not found",
+        error: "Internal server read error",
+        detail: err.message,
       });
     }
-    res.status(200).json(report);
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      error: "Internal server read error",
-      detail: err.message,
-    });
-  }
-});
+  },
+);
 
 // ==========================================================
 // 1. GET DETAILS BY ID & VERSION (Initial Data Loading)
 // ==========================================================
-router.get("/:id/versions/:versionId", async (req, res) => {
-  try {
-    const { id, versionId } = req.params;
-    const report = await ComprehensiveReport.findOne({
-      projectId: id,
-      versionId,
-    });
-
-    if (!report) {
-      // Return clean fallback defaults so frontend state initialization works smoothly
-      return res.status(200).json({
-        reportName: "New Dynamic Report Workspace",
-        header: {
-          logo: "",
-          title: "",
-          subTitle: "",
-          analystName: "",
-          date: new Date().toISOString().split("T")[0],
-        },
-        footer: {
-          text: "Bionivid Analytical Sequence Output — All Rights Reserved.",
-          pageNumbering: true,
-          confidentialTag: true,
-        },
-        sections: [],
+router.get(
+  "/:id/versions/:versionId",
+  auth,
+  role("admin", "manager", "analyst"),
+  async (req, res) => {
+    try {
+      const { id, versionId } = req.params;
+      const report = await ComprehensiveReport.findOne({
+        projectId: id,
+        versionId,
       });
+
+      if (!report) {
+        // Return clean fallback defaults so frontend state initialization works smoothly
+        return res.status(200).json({
+          reportName: "New Dynamic Report Workspace",
+          header: {
+            logo: "",
+            title: "",
+            subTitle: "",
+            analystName: "",
+            date: new Date().toISOString().split("T")[0],
+          },
+          footer: {
+            text: "Bionivid Analytical Sequence Output — All Rights Reserved.",
+            pageNumbering: true,
+            confidentialTag: true,
+          },
+          sections: [],
+        });
+      }
+      return res.status(200).json(report);
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
     }
-    return res.status(200).json(report);
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
+  },
+);
 
 // ==========================================================
 // 2. PUT (SAVE / UPDATE) REPORT BY ID & VERSION
 // ==========================================================
-router.put("/:id/versions/:versionId", async (req, res) => {
-  try {
-    const { id, versionId } = req.params;
-    const { reportName, header, footer, sections, status } = req.body;
+router.put(
+  "/:id/versions/:versionId",
+  auth,
+  role("admin", "manager", "analyst"),
+  async (req, res) => {
+    try {
+      const { id, versionId } = req.params;
+      const { reportName, header, footer, sections, status } = req.body;
 
-    // upsert: true makes this single endpoint handle both continuous saving and creation safely
-    const updatedReport = await ComprehensiveReport.findOneAndUpdate(
-      { projectId: id, versionId: versionId },
-      {
-        $set: {
-          reportName,
-          header,
-          footer,
-          sections,
-          status: status || "draft",
+      // upsert: true makes this single endpoint handle both continuous saving and creation safely
+      const updatedReport = await ComprehensiveReport.findOneAndUpdate(
+        { projectId: id, versionId: versionId },
+        {
+          $set: {
+            reportName,
+            header,
+            footer,
+            sections,
+            status: status || "draft",
+          },
         },
-      },
-      { new: true, upsert: true, runValidators: true },
-    );
+        { new: true, upsert: true, runValidators: true },
+      );
 
-    return res.status(200).json({
-      success: true,
-      message: "Workspace saved and synchronized successfully",
-      data: updatedReport,
-    });
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      error: "Update engine operational exception",
-      detail: err.message,
-    });
-  }
-});
+      return res.status(200).json({
+        success: true,
+        message: "Workspace saved and synchronized successfully",
+        data: updatedReport,
+      });
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        error: "Update engine operational exception",
+        detail: err.message,
+      });
+    }
+  },
+);
 
 // ==========================================================
 // 3. DELETE SPECIFIC VERSION INSTANCE
 // ==========================================================
-router.delete("/:id/versions/:versionId", async (req, res) => {
-  try {
-    const { id, versionId } = req.params;
-    const deleted = await ComprehensiveReport.findOneAndDelete({
-      projectId: id,
-      versionId,
-    });
-    if (!deleted)
-      return res
-        .status(404)
-        .json({ success: false, error: "Report version targets not found" });
+router.delete(
+  "/:id/versions/:versionId",
+  auth,
+  role("admin", "manager", "analyst"),
+  async (req, res) => {
+    try {
+      const { id, versionId } = req.params;
+      const deleted = await ComprehensiveReport.findOneAndDelete({
+        projectId: id,
+        versionId,
+      });
+      if (!deleted)
+        return res
+          .status(404)
+          .json({ success: false, error: "Report version targets not found" });
 
-    return res
-      .status(200)
-      .json({ success: true, message: "Version dropped successfully" });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
+      return res
+        .status(200)
+        .json({ success: true, message: "Version dropped successfully" });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  },
+);
 
 // ==========================================================
 // 4. VERSION IMPORT WORKFLOW (Cloning Entry Logic)
 // ==========================================================
-router.post("/import-version", async (req, res) => {
-  try {
-    const { sourceVersionId, targetVersionId, newReportName, importOptions } =
-      req.body;
+router.post(
+  "/import-version",
+  auth,
+  role("admin", "manager", "analyst"),
+  async (req, res) => {
+    try {
+      const { sourceVersionId, targetVersionId, newReportName, importOptions } =
+        req.body;
 
-    const sourceReport = await ComprehensiveReport.findOne({
-      versionId: sourceVersionId,
-    });
-    if (!sourceReport) {
-      return res.status(404).json({
-        success: false,
-        error: "Source reference baseline version not found.",
+      const sourceReport = await ComprehensiveReport.findOne({
+        versionId: sourceVersionId,
       });
-    }
-
-    let importedPayload = {
-      projectId: sourceReport.projectId,
-      versionId: targetVersionId,
-      reportName: newReportName || `${sourceReport.reportName} - Clone`,
-      status: "Draft",
-      sections: [],
-    };
-
-    if (importOptions.headerFooter) {
-      importedPayload.header = sourceReport.header;
-      importedPayload.footer = sourceReport.footer;
-    }
-
-    if (importOptions.sections) {
-      importedPayload.sections = sourceReport.sections.map((sec) => {
-        let clonedElements = sec.elements.filter((el) => {
-          if (el.type === "text") return true;
-          if (el.type === "image" && importOptions.images) return true;
-          if (el.type === "table" && importOptions.tables) return true;
-          return false;
+      if (!sourceReport) {
+        return res.status(404).json({
+          success: false,
+          error: "Source reference baseline version not found.",
         });
+      }
 
-        return {
-          id: "sec_" + Math.random().toString(36).substr(2, 9),
-          title: sec.title,
-          description: sec.description,
-          elements: clonedElements,
-        };
+      let importedPayload = {
+        projectId: sourceReport.projectId,
+        versionId: targetVersionId,
+        reportName: newReportName || `${sourceReport.reportName} - Clone`,
+        status: "Draft",
+        sections: [],
+      };
+
+      if (importOptions.headerFooter) {
+        importedPayload.header = sourceReport.header;
+        importedPayload.footer = sourceReport.footer;
+      }
+
+      if (importOptions.sections) {
+        importedPayload.sections = sourceReport.sections.map((sec) => {
+          let clonedElements = sec.elements.filter((el) => {
+            if (el.type === "text") return true;
+            if (el.type === "image" && importOptions.images) return true;
+            if (el.type === "table" && importOptions.tables) return true;
+            return false;
+          });
+
+          return {
+            id: "sec_" + Math.random().toString(36).substr(2, 9),
+            title: sec.title,
+            description: sec.description,
+            elements: clonedElements,
+          };
+        });
+      }
+
+      const compiledClone = new ComprehensiveReport(importedPayload);
+      await compiledClone.save();
+
+      return res.status(201).json({
+        success: true,
+        message: "Historical data parsed and cloned successfully",
+        data: compiledClone,
+      });
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        error: "Version cloning engine execution error",
+        detail: err.message,
       });
     }
-
-    const compiledClone = new ComprehensiveReport(importedPayload);
-    await compiledClone.save();
-
-    return res.status(201).json({
-      success: true,
-      message: "Historical data parsed and cloned successfully",
-      data: compiledClone,
-    });
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      error: "Version cloning engine execution error",
-      detail: err.message,
-    });
-  }
-});
+  },
+);
 
 // ========================================================
 // 7. GET LIVE HTML RENDER PREVIEW (Bionivid Layout Format)
@@ -270,27 +298,31 @@ const getSectionHeight = (elements = []) => {
   return Math.max(maxBottom + 80, 500);
 };
 
-router.get("/:versionId/preview", async (req, res) => {
-  try {
-    const report = await ComprehensiveReport.findOne({
-      versionId: req.params.versionId,
-    });
-    if (!report)
-      return res
-        .status(404)
-        .send("<h1>Report Template Draft Layer Not Found</h1>");
+router.get(
+  "/:versionId/preview",
+  auth,
+  role("admin", "manager", "analyst"),
+  async (req, res) => {
+    try {
+      const report = await ComprehensiveReport.findOne({
+        versionId: req.params.versionId,
+      });
+      if (!report)
+        return res
+          .status(404)
+          .send("<h1>Report Template Draft Layer Not Found</h1>");
 
-    // Construct loop iteration through multi-page form layout mapping blocks
-    let sectionHtmlCards = report.sections
-      .map((sec, sIdx) => {
-        // Map inner interactive free-form canvas elements dynamically using computed bounding boxes
-        let elementLayers = sec.elements
-          .map((el) => {
-            let nodePayload = "";
+      // Construct loop iteration through multi-page form layout mapping blocks
+      let sectionHtmlCards = report.sections
+        .map((sec, sIdx) => {
+          // Map inner interactive free-form canvas elements dynamically using computed bounding boxes
+          let elementLayers = sec.elements
+            .map((el) => {
+              let nodePayload = "";
 
-            if (el.type === "text") {
-              // --- FORMATTING TOOLBAR INLINE STYLE COMPLIANCE BUILDER ---
-              let inlineStyleStyles = `
+              if (el.type === "text") {
+                // --- FORMATTING TOOLBAR INLINE STYLE COMPLIANCE BUILDER ---
+                let inlineStyleStyles = `
             margin: 0; 
             font-size: 14px; 
             line-height: 1.6; 
@@ -300,49 +332,49 @@ router.get("/:versionId/preview", async (req, res) => {
             font-style: ${el.isItalic ? "italic" : "normal"};
           `.trim();
 
-              nodePayload = el.isBullet
-                ? `<ul style="margin:0; padding-left:20px;"><li style="${inlineStyleStyles}">${el.textContent}</li></ul>`
-                : `<p style="${inlineStyleStyles}">${el.textContent}</p>`;
-            } else if (el.type === "image") {
-              // --- FIX FOR BROKEN BLOB PREVIEWS ---
-              // Falls back to a clean data graphic placeholder if the URL state is missing or empty
-              let resolvedImgSource =
-                el.imageUrl ||
-                "https://via.placeholder.com/400x200?text=No+Data+Graphic";
+                nodePayload = el.isBullet
+                  ? `<ul style="margin:0; padding-left:20px;"><li style="${inlineStyleStyles}">${el.textContent}</li></ul>`
+                  : `<p style="${inlineStyleStyles}">${el.textContent}</p>`;
+              } else if (el.type === "image") {
+                // --- FIX FOR BROKEN BLOB PREVIEWS ---
+                // Falls back to a clean data graphic placeholder if the URL state is missing or empty
+                let resolvedImgSource =
+                  el.imageUrl ||
+                  "https://via.placeholder.com/400x200?text=No+Data+Graphic";
 
-              nodePayload = `
+                nodePayload = `
               <div style="text-align: ${el.imageAlignment?.toLowerCase() || "center"}; width: 100%;">
                 <img src="${resolvedImgSource}" style="max-width:100%; height:auto; border-radius:4px; display:inline-block;" />
                 ${el.imageLegend ? `<div class="legend-box" style="font-size:11px; font-style:italic; color:#4a5568; margin-top:4px;"><b>${el.imageLegend}</b></div>` : ""}
                 ${el.imageDescription ? `<p style="font-size:12px; color:#718096; margin-top:2px;">${el.imageDescription}</p>` : ""}
               </div>`;
-            } else if (el.type === "table") {
-              let rowsMarkup = el.tableData
-                .map(
-                  (row, rIdx) => `
+              } else if (el.type === "table") {
+                let rowsMarkup = el.tableData
+                  .map(
+                    (row, rIdx) => `
             <tr style="background: ${rIdx === 0 ? "#f1f5f9" : "transparent"}; font-weight: ${rIdx === 0 ? "bold" : "normal"}; border-bottom: 1px solid #e2e8f0;">
               ${row.map((cell) => `<td style="padding: 6px 8px; border: 1px solid #cbd5e0; text-align:center; color:#334155;">${cell || ""}</td>`).join("")}
             </tr>`,
-                )
-                .join("");
+                  )
+                  .join("");
 
-              nodePayload = `
+                nodePayload = `
           <div style="width:100%; height:100%; overflow-x:auto;">
             <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:6px;">${rowsMarkup}</table>
             ${el.tableLegend ? `<div style="font-size:11px; font-style:italic; color:#4a5568;"><b>${el.tableLegend}</b></div>` : ""}
             ${el.tableDescription ? `<p style="font-size:12px; color:#718096; margin:0;">${el.tableDescription}</p>` : ""}
           </div>`;
-            }
+              }
 
-            // Return element structural box with absolute dimensions scaled to preview scale matrix definitions
-            return `
+              // Return element structural box with absolute dimensions scaled to preview scale matrix definitions
+              return `
         <div style="position: absolute; left: ${el.x}px; top: ${el.y}px; width: ${el.w}px; height: ${el.h}px; z-index: ${el.zIndex}; overflow: hidden; box-sizing: border-box; padding: 4px;">
           ${nodePayload}
         </div>`;
-          })
-          .join("");
+            })
+            .join("");
 
-        return `
+          return `
     <div class="report-card" style="background:#ffffff; margin-bottom:40px; padding:30px; border-radius:8px; border-top: 6px solid #1a365d; box-shadow: 0 4px 6px rgba(0,0,0,0.05); position:relative; min-height:550px; box-sizing: border-box;">
       <div class="section-meta-header" style="margin-bottom:20px; border-bottom: 2px solid #e2e8f0; padding-bottom:10px;">
         <span style="font-size:11px; font-weight:bold; color:#3182ce; text-transform:uppercase;">SECTION MODULE #${sIdx + 1}</span>
@@ -353,11 +385,11 @@ router.get("/:versionId/preview", async (req, res) => {
         ${elementLayers}
       </div>
     </div>`;
-      })
-      .join("");
+        })
+        .join("");
 
-    // Compile entire template layout string exactly matching standard structure reports architectures
-    const fullHtmlTemplate = `
+      // Compile entire template layout string exactly matching standard structure reports architectures
+      const fullHtmlTemplate = `
       <!DOCTYPE html>
       <html lang="en">
       <head>
@@ -399,181 +431,192 @@ router.get("/:versionId/preview", async (req, res) => {
       </html>
     `;
 
-    res.status(200).send(fullHtmlTemplate);
-  } catch (err) {
-    res
-      .status(500)
-      .send(
-        `<h3>Preview compilation execution failed fatally: ${err.message}</h3>`,
+      res.status(200).send(fullHtmlTemplate);
+    } catch (err) {
+      res
+        .status(500)
+        .send(
+          `<h3>Preview compilation execution failed fatally: ${err.message}</h3>`,
+        );
+    }
+  },
+);
+
+router.put(
+  "/:id/versions/:versionId/publish",
+  auth,
+  role("admin", "manager", "analyst"),
+  async (req, res) => {
+    try {
+      const { id, versionId } = req.params;
+      const loggedInUser = req.body.user;
+      const report = await ComprehensiveReport.findOne({
+        projectId: id,
+        versionId,
+      });
+
+      if (!report) {
+        return res.status(404).json({
+          success: false,
+          message: "Report version not found",
+        });
+      }
+      // if (report.status === "published") {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: "Version already published",
+      //   });
+      // }
+
+      const unresolvedComments = await ReportComment.countDocuments({
+        projectId: id,
+        versionId,
+        status: { $ne: "resolved" },
+      });
+
+      if (unresolvedComments) {
+        return res.status(400).json({
+          success: false,
+          message: "Resolve all comments before publishing",
+        });
+      }
+
+      report.status = "published";
+      await report.save();
+      const version = await ProjectVersion.findOneAndUpdate(
+        {
+          _id: versionId,
+        },
+        {
+          status: "published",
+          updatedBy: loggedInUser ? loggedInUser._id : null,
+          isNotify: true,
+        },
+        {
+          new: true,
+        },
       );
-  }
-});
 
-router.put("/:id/versions/:versionId/publish", async (req, res) => {
-  try {
-    const { id, versionId } = req.params;
-    const loggedInUser = req.body.user;
-    const report = await ComprehensiveReport.findOne({
-      projectId: id,
-      versionId,
-    });
-
-    if (!report) {
-      return res.status(404).json({
-        success: false,
-        message: "Report version not found",
-      });
-    }
-    // if (report.status === "published") {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "Version already published",
-    //   });
-    // }
-
-    const unresolvedComments = await ReportComment.countDocuments({
-      projectId: id,
-      versionId,
-      status: { $ne: "resolved" },
-    });
-
-    if (unresolvedComments) {
-      return res.status(400).json({
-        success: false,
-        message: "Resolve all comments before publishing",
-      });
-    }
-
-    report.status = "published";
-    await report.save();
-    const version = await ProjectVersion.findOneAndUpdate(
-      {
-        _id: versionId,
-      },
-      {
-        status: "published",
-        updatedBy: loggedInUser ? loggedInUser._id : null,
-        isNotify: true,
-      },
-      {
-        new: true,
-      },
-    );
-
-    const project = await Project.findById(id)
-      .populate("manager", "_id name")
-      .populate("analysts", "_id name");
-    if (!project) {
-      return res.status(404).json({
-        success: false,
-        message: "Project not found",
-      });
-    }
-    const users = [project.manager?._id, project.analysts?.map((a) => a._id)]
-      .flat()
-      .filter(Boolean)
-      .map(String);
-
-    const uniqueUsers = [...new Set(users)];
-    if (uniqueUsers.length) {
-      console.log(uniqueUsers);
-      const data = await createNotification({
-        users: uniqueUsers,
-        sender: loggedInUser ? loggedInUser._id : null,
-        project: id,
-        type: "REPORT_PUBLISHED",
-        message: `${report.reportName}
-        (${report.versionId})
-        has been published.`,
-      });
-      console.log(data);
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Report version published successfully",
-      data: {
-        reportVersion: report.versionId,
-        status: report.status,
-      },
-    });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({
-      success: false,
-      error: err.message,
-    });
-  }
-});
-
-router.put("/:id/versions/:versionId/send-back", async (req, res) => {
-  try {
-    const { id, versionId } = req.params;
-    const loggedInUser = req.body.user;
-    const report = await ComprehensiveReport.findOne({
-      projectId: id,
-      versionId,
-    });
-
-    if (!report) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Report version not found" });
-    }
-
-    report.status = "sent_back";
-
-    await report.save();
-
-    await ProjectVersion.findByIdAndUpdate(
-      versionId,
-
-      {
-        status: "revision_required",
-
-        updatedBy: loggedInUser?._id,
-
-        isNotify: true,
-      },
-    );
-
-    const project = await Project.findById(id)
-      .populate("manager", "_id name")
-      .populate("analysts", "_id name");
-
-    if (project) {
-      const users = [project.analysts?.map((a) => a._id)]
+      const project = await Project.findById(id)
+        .populate("manager", "_id name")
+        .populate("analysts", "_id name");
+      if (!project) {
+        return res.status(404).json({
+          success: false,
+          message: "Project not found",
+        });
+      }
+      const users = [project.manager?._id, project.analysts?.map((a) => a._id)]
         .flat()
         .filter(Boolean)
         .map(String);
 
       const uniqueUsers = [...new Set(users)];
-
       if (uniqueUsers.length) {
-        await createNotification({
+        console.log(uniqueUsers);
+        const data = await createNotification({
           users: uniqueUsers,
-          sender: loggedInUser?._id,
+          sender: loggedInUser ? loggedInUser._id : null,
           project: id,
-          type: "REPORT_SENT_BACK",
+          type: "REPORT_PUBLISHED",
           message: `${report.reportName}
+        (${report.versionId})
+        has been published.`,
+        });
+        console.log(data);
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Report version published successfully",
+        data: {
+          reportVersion: report.versionId,
+          status: report.status,
+        },
+      });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({
+        success: false,
+        error: err.message,
+      });
+    }
+  },
+);
+
+router.put(
+  "/:id/versions/:versionId/send-back",
+  auth,
+  role("admin", "manager", "analyst"),
+  async (req, res) => {
+    try {
+      const { id, versionId } = req.params;
+      const loggedInUser = req.body.user;
+      const report = await ComprehensiveReport.findOne({
+        projectId: id,
+        versionId,
+      });
+
+      if (!report) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Report version not found" });
+      }
+
+      report.status = "sent_back";
+
+      await report.save();
+
+      await ProjectVersion.findByIdAndUpdate(
+        versionId,
+
+        {
+          status: "revision_required",
+
+          updatedBy: loggedInUser?._id,
+
+          isNotify: true,
+        },
+      );
+
+      const project = await Project.findById(id)
+        .populate("manager", "_id name")
+        .populate("analysts", "_id name");
+
+      if (project) {
+        const users = [project.analysts?.map((a) => a._id)]
+          .flat()
+          .filter(Boolean)
+          .map(String);
+
+        const uniqueUsers = [...new Set(users)];
+
+        if (uniqueUsers.length) {
+          await createNotification({
+            users: uniqueUsers,
+            sender: loggedInUser?._id,
+            project: id,
+            type: "REPORT_SENT_BACK",
+            message: `${report.reportName}
                     (${report.versionId})
                     has been sent back for changes.`,
-        });
+          });
+        }
       }
-    }
 
-    return res.json({
-      success: true,
-      message: "Report sent back successfully",
-    });
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({
-      success: false,
-      error: err.message,
-    });
-  }
-});
+      return res.json({
+        success: true,
+        message: "Report sent back successfully",
+      });
+    } catch (err) {
+      console.log(err);
+      res.status(500).json({
+        success: false,
+        error: err.message,
+      });
+    }
+  },
+);
 
 // STORAGE
 
@@ -598,26 +641,31 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-router.get("/get-report-comments/:id/:versionId", async (req, res) => {
-  // console.log(req.params);
-  try {
-    const comments = await ReportComment.find({
-      projectId: req.params.id,
-      versionId: req.params.versionId,
-    })
-      .populate("createdBy", "name")
-      .populate("updatedBy", "name")
-      .sort({
-        createdAt: 1,
+router.get(
+  "/get-report-comments/:id/:versionId",
+  auth,
+  role("admin", "manager", "analyst"),
+  async (req, res) => {
+    // console.log(req.params);
+    try {
+      const comments = await ReportComment.find({
+        projectId: req.params.id,
+        versionId: req.params.versionId,
+      })
+        .populate("createdBy", "name")
+        .populate("updatedBy", "name")
+        .sort({
+          createdAt: 1,
+        });
+      res.json(comments);
+    } catch (err) {
+      console.log(err);
+      res.status(500).json({
+        message: err.message,
       });
-    res.json(comments);
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({
-      message: err.message,
-    });
-  }
-});
+    }
+  },
+);
 // CREATE COMMENT
 router.post("/report-comments", upload.single("image"), async (req, res) => {
   try {
@@ -648,58 +696,72 @@ router.post("/report-comments", upload.single("image"), async (req, res) => {
   }
 });
 
-router.put("/report-comments/:id", async (req, res) => {
-  try {
-    const comment = await ReportComment.findById(req.params.id);
-    if (!comment) {
-      return res.status(404).json({
-        message: "Comment not found",
+router.put(
+  "/report-comments/:id",
+  auth,
+  role("admin", "manager", "analyst"),
+  async (req, res) => {
+    try {
+      const comment = await ReportComment.findById(req.params.id);
+      if (!comment) {
+        return res.status(404).json({
+          message: "Comment not found",
+        });
+      }
+      if (req.body.text) {
+        comment.text = req.body.text;
+      }
+      if (req.body.status) {
+        comment.status = req.body.status;
+      }
+      if (req.body.image) {
+        comment.image = req.body.image;
+      }
+      comment.updatedBy = req.body.user_id;
+      comment.updatedAt = new Date();
+      await comment.save();
+      const updated = await ReportComment.findById(comment._id)
+        .populate("createdBy", "name")
+        .populate("updatedBy", "name");
+      res.json(updated);
+    } catch (err) {
+      res.status(500).json({
+        message: err.message,
       });
     }
-    if (req.body.text) {
-      comment.text = req.body.text;
+  },
+);
+
+router.put(
+  "/report-comments/:id/note",
+  auth,
+  role("admin", "manager", "analyst"),
+  async (req, res) => {
+    try {
+      const comment = await ReportComment.findByIdAndUpdate(
+        req.params.id,
+
+        { managerNote: req.body.managerNote },
+
+        { new: true },
+      );
+
+      if (!comment) {
+        return res.status(404).json({ message: "Comment not found" });
+      }
+
+      res.json({ success: true, comment });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
     }
-    if (req.body.status) {
-      comment.status = req.body.status;
-    }
-    if (req.body.image) {
-      comment.image = req.body.image;
-    }
-    comment.updatedBy = req.body.user_id;
-    comment.updatedAt = new Date();
-    await comment.save();
-    const updated = await ReportComment.findById(comment._id)
-      .populate("createdBy", "name")
-      .populate("updatedBy", "name");
-    res.json(updated);
-  } catch (err) {
-    res.status(500).json({
-      message: err.message,
-    });
-  }
-});
+  },
+);
 
-router.put("/report-comments/:id/note", async (req, res) => {
-  try {
-    const comment = await ReportComment.findByIdAndUpdate(
-      req.params.id,
-
-      { managerNote: req.body.managerNote },
-
-      { new: true },
-    );
-
-    if (!comment) {
-      return res.status(404).json({ message: "Comment not found" });
-    }
-
-    res.json({ success: true, comment });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-router.delete("/report-comments/:id", async (req, res) => {
+router.delete(
+  "/report-comments/:id",
+  auth,
+  role("admin", "manager", "analyst"),
+  async (req, res) => {
     try {
       const comment = await ReportComment.findByIdAndDelete(req.params.id);
 
