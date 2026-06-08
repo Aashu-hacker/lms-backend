@@ -1,5 +1,8 @@
 const express = require("express");
 const router = express.Router();
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 const ComprehensiveReport = require("../models/ReportVersion");
 const ProjectVersion = require("../models/ProjectVersion");
 const Project = require("../models/Project");
@@ -524,15 +527,47 @@ router.get("/get-report-comments/:id/:versionId", async (req, res) => {
   }
 });
 
-router.post("/report-comments", async (req, res) => {
+// STORAGE
+
+const uploadPath = path.join(__dirname, "../uploads/report-comments");
+
+// create folder if not exists
+if (!fs.existsSync(uploadPath)) {
+  fs.mkdirSync(uploadPath, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadPath);
+  },
+
+  filename: function (req, file, cb) {
+    const uniqueName = Date.now() + "-" + Math.round(Math.random() * 1e9);
+
+    cb(null, uniqueName + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({ storage });
+
+// CREATE COMMENT
+router.post("/report-comments", upload.single("image"), async (req, res) => {
   try {
+    // console.log(req.body);
+    // console.log(req.file);
+
     const comment = await ReportComment.create({
       projectId: req.body.projectId,
       versionId: req.body.versionId,
       x: req.body.x,
       y: req.body.y,
       text: req.body.text,
-      image: req.body.image,
+
+      // save uploaded image path
+      image: req.file
+        ? `${req.protocol}://${req.get("host")}/uploads/report-comments/${req.file.filename}`
+        : "",
+
       createdBy: req.body.user_id,
       updatedBy: req.body.user_id,
     });

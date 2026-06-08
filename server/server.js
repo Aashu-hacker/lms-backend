@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const http = require("http");
+const path = require("path");
 const { Server } = require("socket.io");
 const cors = require("cors");
 const connectDB = require("./config/db");
@@ -86,6 +87,13 @@ app.use(express.json({ limit: '50mb' }));
 
 // Increase limit for URL-encoded form submissions (just in case)
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+app.use(
+  "/uploads",
+  express.static(
+    path.join(__dirname, "uploads")
+  )
+);
 
 // ROUTES
 app.use("/api/auth", require("./routes/authRoutes"));
