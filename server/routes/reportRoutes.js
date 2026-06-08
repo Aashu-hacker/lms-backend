@@ -506,111 +506,6 @@ router.put("/:id/versions/:versionId/publish", async (req, res) => {
   }
 });
 
-router.get("/get-report-comments/:id/:versionId", async (req, res) => {
-  // console.log(req.params);
-  try {
-    const comments = await ReportComment.find({
-      projectId: req.params.id,
-      versionId: req.params.versionId,
-    })
-      .populate("createdBy", "name")
-      .populate("updatedBy", "name")
-      .sort({
-        createdAt: 1,
-      });
-    res.json(comments);
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({
-      message: err.message,
-    });
-  }
-});
-
-// STORAGE
-
-const uploadPath = path.join(__dirname, "../uploads/report-comments");
-
-// create folder if not exists
-if (!fs.existsSync(uploadPath)) {
-  fs.mkdirSync(uploadPath, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadPath);
-  },
-
-  filename: function (req, file, cb) {
-    const uniqueName = Date.now() + "-" + Math.round(Math.random() * 1e9);
-
-    cb(null, uniqueName + path.extname(file.originalname));
-  },
-});
-
-const upload = multer({ storage });
-
-// CREATE COMMENT
-router.post("/report-comments", upload.single("image"), async (req, res) => {
-  try {
-    // console.log(req.body);
-    // console.log(req.file);
-
-    const comment = await ReportComment.create({
-      projectId: req.body.projectId,
-      versionId: req.body.versionId,
-      x: req.body.x,
-      y: req.body.y,
-      text: req.body.text,
-
-      // save uploaded image path
-      image: req.file
-        ? `${req.protocol}://${req.get("host")}/uploads/report-comments/${req.file.filename}`
-        : "",
-
-      createdBy: req.body.user_id,
-      updatedBy: req.body.user_id,
-    });
-
-    res.json(comment);
-  } catch (err) {
-    res.status(500).json({
-      message: err.message,
-    });
-  }
-});
-
-router.put("/report-comments/:id", async (req, res) => {
-  try {
-    const comment = await ReportComment.findById(req.params.id);
-    if (!comment) {
-      return res.status(404).json({
-        message: "Comment not found",
-      });
-    }
-    if (req.body.text) {
-      comment.text = req.body.text;
-    }
-    if (req.body.status) {
-      comment.status = req.body.status;
-    }
-    if (req.body.image) {
-      comment.image = req.body.image;
-    }
-    comment.updatedBy = req.body.user_id;
-    comment.updatedAt = new Date();
-    await comment.save();
-    const updated = await ReportComment.findById(comment._id)
-      .populate("createdBy", "name")
-      .populate("updatedBy", "name");
-    res.json(updated);
-  } catch (err) {
-    res.status(500).json({
-      message: err.message,
-    });
-  }
-});
-
 router.put("/:id/versions/:versionId/send-back", async (req, res) => {
   try {
     const { id, versionId } = req.params;
@@ -679,5 +574,144 @@ router.put("/:id/versions/:versionId/send-back", async (req, res) => {
     });
   }
 });
+
+// STORAGE
+
+const uploadPath = path.join(__dirname, "../uploads/report-comments");
+
+// create folder if not exists
+if (!fs.existsSync(uploadPath)) {
+  fs.mkdirSync(uploadPath, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadPath);
+  },
+
+  filename: function (req, file, cb) {
+    const uniqueName = Date.now() + "-" + Math.round(Math.random() * 1e9);
+
+    cb(null, uniqueName + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({ storage });
+
+router.get("/get-report-comments/:id/:versionId", async (req, res) => {
+  // console.log(req.params);
+  try {
+    const comments = await ReportComment.find({
+      projectId: req.params.id,
+      versionId: req.params.versionId,
+    })
+      .populate("createdBy", "name")
+      .populate("updatedBy", "name")
+      .sort({
+        createdAt: 1,
+      });
+    res.json(comments);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      message: err.message,
+    });
+  }
+});
+// CREATE COMMENT
+router.post("/report-comments", upload.single("image"), async (req, res) => {
+  try {
+    // console.log(req.body);
+    // console.log(req.file);
+
+    const comment = await ReportComment.create({
+      projectId: req.body.projectId,
+      versionId: req.body.versionId,
+      x: req.body.x,
+      y: req.body.y,
+      text: req.body.text,
+
+      // save uploaded image path
+      image: req.file
+        ? `${req.protocol}://${req.get("host")}/uploads/report-comments/${req.file.filename}`
+        : "",
+
+      createdBy: req.body.user_id,
+      updatedBy: req.body.user_id,
+    });
+
+    res.json(comment);
+  } catch (err) {
+    res.status(500).json({
+      message: err.message,
+    });
+  }
+});
+
+router.put("/report-comments/:id", async (req, res) => {
+  try {
+    const comment = await ReportComment.findById(req.params.id);
+    if (!comment) {
+      return res.status(404).json({
+        message: "Comment not found",
+      });
+    }
+    if (req.body.text) {
+      comment.text = req.body.text;
+    }
+    if (req.body.status) {
+      comment.status = req.body.status;
+    }
+    if (req.body.image) {
+      comment.image = req.body.image;
+    }
+    comment.updatedBy = req.body.user_id;
+    comment.updatedAt = new Date();
+    await comment.save();
+    const updated = await ReportComment.findById(comment._id)
+      .populate("createdBy", "name")
+      .populate("updatedBy", "name");
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({
+      message: err.message,
+    });
+  }
+});
+
+router.put("/report-comments/:id/note", async (req, res) => {
+  try {
+    const comment = await ReportComment.findByIdAndUpdate(
+      req.params.id,
+
+      { managerNote: req.body.managerNote },
+
+      { new: true },
+    );
+
+    if (!comment) {
+      return res.status(404).json({ message: "Comment not found" });
+    }
+
+    res.json({ success: true, comment });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.delete("/report-comments/:id", async (req, res) => {
+    try {
+      const comment = await ReportComment.findByIdAndDelete(req.params.id);
+
+      if (!comment) {
+        return res.status(404).json({ message: "Comment not found" });
+      }
+
+      res.json({ success: true, message: "Comment deleted" });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  },
+);
 
 module.exports = router;

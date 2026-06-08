@@ -36,6 +36,11 @@ const ReportCommentSchema = new mongoose.Schema(
       default: null,
     },
 
+    managerNote: {
+      type: String,
+      default: null,
+    },
+    
     status: {
       type: String,
       enum: ["open", "resolved"],
