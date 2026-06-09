@@ -732,8 +732,6 @@ router.put(
 
 router.put(
   "/report-comments/:id/note",
-  auth,
-  role("admin", "manager", "analyst"),
   async (req, res) => {
     try {
       const comment = await ReportComment.findByIdAndUpdate(
