@@ -20,10 +20,10 @@ const role = require("../middleware/roleMiddleware");
 const router = express.Router();
 
 // List
-router.get("/", auth, role("admin", "manager", "analyst"), getProjects);
+router.get("/", auth, role("admin", "manager", "analyst", "client"), getProjects);
 
 // Single
-router.get("/:id", auth, role("admin", "manager", "analyst"), getProjectById);
+router.get("/:id", auth, role("admin", "manager", "analyst", "client"), getProjectById);
 
 // Create
 router.post("/", auth, role("admin", "manager"), createProject);
@@ -37,7 +37,7 @@ router.delete("/:id", auth, role("admin"), deleteProject);
 router.get(
   "/:projectId/versions",
   auth,
-  role("admin", "manager", "analyst"),
+  role("admin", "manager", "analyst","client"),
   getProjectVersion,
 );
 

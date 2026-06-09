@@ -103,7 +103,7 @@ router.get(
 router.get(
   "/:id/versions/:versionId",
   auth,
-  role("admin", "manager", "analyst"),
+  role("admin", "manager", "analyst", "client"),
   async (req, res) => {
     try {
       const { id, versionId } = req.params;
@@ -300,8 +300,6 @@ const getSectionHeight = (elements = []) => {
 
 router.get(
   "/:versionId/preview",
-  auth,
-  role("admin", "manager", "analyst"),
   async (req, res) => {
     try {
       const report = await ComprehensiveReport.findOne({
@@ -644,7 +642,7 @@ const upload = multer({ storage });
 router.get(
   "/get-report-comments/:id/:versionId",
   auth,
-  role("admin", "manager", "analyst"),
+  role("admin", "manager", "analyst", "client"),
   async (req, res) => {
     // console.log(req.params);
     try {
@@ -699,7 +697,7 @@ router.post("/report-comments", upload.single("image"), async (req, res) => {
 router.put(
   "/report-comments/:id",
   auth,
-  role("admin", "manager", "analyst"),
+  role("admin", "manager", "analyst", "client"),
   async (req, res) => {
     try {
       const comment = await ReportComment.findById(req.params.id);
@@ -760,7 +758,7 @@ router.put(
 router.delete(
   "/report-comments/:id",
   auth,
-  role("admin", "manager", "analyst"),
+  role("admin", "manager", "analyst", "client"),
   async (req, res) => {
     try {
       const comment = await ReportComment.findByIdAndDelete(req.params.id);

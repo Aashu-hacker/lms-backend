@@ -1,8 +1,7 @@
-
 const mongoose = require("mongoose");
 const Project = require("../models/Project");
 const ProjectVersion = require("../models/ProjectVersion");
-const ComprehensiveReport = require('../models/ReportVersion');
+const ComprehensiveReport = require("../models/ReportVersion");
 const Block = require("../models/Block");
 const createNotification = require("../utils/createNotification");
 
@@ -84,10 +83,42 @@ exports.getProjects = async (req, res) => {
       .populate("createdBy", "name email")
       .populate("manager", "name email")
       .populate("analysts", "name email")
-      .sort({ createdAt: -1 });
+      .populate("clients", "name email")
+      .sort({ createdAt: -1 })
+      .lean();
 
-    res.json(projects);
+    const projectIds = projects.map((project) => project._id);
+
+    const versions = await ProjectVersion.find({
+      projectId: { $in: projectIds },
+    })
+      .populate("createdBy", "name email")
+      .populate("updatedBy", "name email")
+      .sort({ version: -1 })
+      .lean();
+
+    const versionsMap = versions.reduce((acc, version) => {
+      const projectId = version.projectId.toString();
+
+      if (!acc[projectId]) {
+        acc[projectId] = [];
+      }
+
+      acc[projectId].push(version);
+
+      return acc;
+    }, {});
+
+    const projectsWithVersions = projects.map((project) => ({
+      ...project,
+      totalVersions: versionsMap[project._id.toString()]?.length || 0,
+      latestVersion: versionsMap[project._id.toString()]?.[0]?.version || null,
+      versions: versionsMap[project._id.toString()] || [],
+    }));
+
+    res.json(projectsWithVersions);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Error fetching projects" });
   }
 };
@@ -183,7 +214,7 @@ exports.getProjectVersion = async (req, res) => {
     const { id: projectId } = req.params;
     // console.log("Fetching versions for projectId:", req.params);
     // ================= ROLE CHECK =================
-    if (!["admin", "manager", "analyst"].includes(req.user.role)) {
+    if (!["admin", "manager", "analyst", "client"].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to view project versions",
@@ -195,6 +226,7 @@ exports.getProjectVersion = async (req, res) => {
       .populate("createdBy", "name email")
       .populate("manager", "name email")
       .populate("analysts", "name email")
+      .populate("clients", "name email")
       .lean();
 
     if (!project) {
@@ -205,7 +237,9 @@ exports.getProjectVersion = async (req, res) => {
     }
 
     // ================= FETCH ALL PROJECT VERSIONS =================
-    const versions = await ProjectVersion.find({ projectId: req.params.projectId })
+    const versions = await ProjectVersion.find({
+      projectId: req.params.projectId,
+    })
       .populate("createdBy", "name email")
       .populate("updatedBy", "name email")
       .sort({ version: -1 }) // Latest first
@@ -292,7 +326,9 @@ exports.addProjectVersion = async (req, res) => {
     }
 
     // ================= CHECK PROJECT EXISTS =================
-    const project = await Project.findById(req.params.projectId).session(session);
+    const project = await Project.findById(req.params.projectId).session(
+      session,
+    );
 
     if (!project) {
       await session.abortTransaction();
@@ -305,7 +341,9 @@ exports.addProjectVersion = async (req, res) => {
     }
 
     // ================= FETCH ALL EXISTING VERSIONS =================
-    const versions = await ProjectVersion.find({ projectId: req.params.projectId })
+    const versions = await ProjectVersion.find({
+      projectId: req.params.projectId,
+    })
       .sort({ version: -1 }) // Highest version first
       .session(session);
 
@@ -323,7 +361,7 @@ exports.addProjectVersion = async (req, res) => {
             updatedBy: req.user._id,
           },
         ],
-        { session }
+        { session },
       );
 
       await session.commitTransaction();
@@ -379,7 +417,7 @@ exports.addProjectVersion = async (req, res) => {
           updatedBy: req.user._id,
         },
       ],
-      { session }
+      { session },
     );
 
     // ================= CLONE BLOCKS FROM BASE VERSION =================
@@ -514,7 +552,6 @@ exports.deleteProjectVersion = async (req, res) => {
   }
 };
 
-
 // ======================================================
 // ARCHIVE PROJECT VERSION
 // ======================================================
@@ -522,7 +559,7 @@ exports.archiveProjectVersion = async (req, res) => {
   try {
     const { id: projectId, versionId } = req.params;
 
-    if (!["admin", "manager", "analyst"].includes(req.user.role)) {
+    if (!["admin", "manager", "analyst", "client"].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to archive project versions",
@@ -540,7 +577,7 @@ exports.archiveProjectVersion = async (req, res) => {
       },
       {
         returnDocument: "after",
-      }
+      },
     );
 
     if (!version) {
@@ -564,7 +601,6 @@ exports.archiveProjectVersion = async (req, res) => {
   }
 };
 
-
 // ======================================================
 // NOTIFY ADMIN FOR VERSION
 // ======================================================
@@ -572,7 +608,7 @@ exports.notifyProjectVersion = async (req, res) => {
   try {
     const { id: projectId, versionId } = req.params;
 
-    if (!["admin", "manager", "analyst"].includes(req.user.role)) {
+    if (!["admin", "manager", "analyst", "client"].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to notify admin",
@@ -590,7 +626,7 @@ exports.notifyProjectVersion = async (req, res) => {
       },
       {
         returnDocument: "after",
-      }
+      },
     );
 
     if (!version) {
@@ -618,47 +654,45 @@ exports.notifyProjectVersion = async (req, res) => {
   }
 };
 
-
-exports.getReportDetails = async (req,res) => {
+exports.getReportDetails = async (req, res) => {
   try {
     const { id, versionId } = req.params;
 
     // Find the report that matches both the projectId and specific versionId
-    const report = await ComprehensiveReport.findOne({ 
-      projectId: id, 
-      versionId: versionId 
+    const report = await ComprehensiveReport.findOne({
+      projectId: id,
+      versionId: versionId,
     });
 
     // If no report matches, return a structured default schema so the frontend doesn't break
     if (!report) {
       return res.status(200).json({
-        reportName: 'New Dynamic Report Workspace',
+        reportName: "New Dynamic Report Workspace",
         header: {
-          logo: '',
-          title: '',
-          subTitle: '',
-          analystName: '',
-          date: new Date().toISOString().split('T')[0]
+          logo: "",
+          title: "",
+          subTitle: "",
+          analystName: "",
+          date: new Date().toISOString().split("T")[0],
         },
         footer: {
-          text: 'Bionivid Analytical Sequence Output — All Rights Reserved.',
+          text: "Bionivid Analytical Sequence Output — All Rights Reserved.",
           pageNumbering: true,
-          confidentialTag: true
+          confidentialTag: true,
         },
-        sections: [] // Empty section card framework ready for additions
+        sections: [], // Empty section card framework ready for additions
       });
     }
 
     // Return the found layout document configuration mapping
     return res.status(200).json(report);
-
   } catch (err) {
     console.error("Error inside getReportDetails controller:", err);
-    return res.status(500).json({ 
-      success: false, 
-      error: "Internal server error while fetching workspace configuration layout details.",
-      detail: err.message 
+    return res.status(500).json({
+      success: false,
+      error:
+        "Internal server error while fetching workspace configuration layout details.",
+      detail: err.message,
     });
   }
 };
-
