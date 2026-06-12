@@ -74,7 +74,7 @@ const ReportCommentSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["open", "resolved"],
+      enum: ["open", "reopen", "resolved"],
       default: "open",
     },
 

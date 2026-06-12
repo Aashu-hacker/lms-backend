@@ -453,18 +453,18 @@ router.put(
         });
       }
 
-      const unresolvedComments = await ReportComment.countDocuments({
-        projectId: id,
-        versionId,
-        status: { $ne: "resolved" },
-      });
+      // const unresolvedComments = await ReportComment.countDocuments({
+      //   projectId: id,
+      //   versionId,
+      //   status: { $ne: "resolved" },
+      // });
 
-      if (unresolvedComments) {
-        return res.status(400).json({
-          success: false,
-          message: "Resolve all comments before publishing",
-        });
-      }
+      // if (unresolvedComments) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: "Resolve all comments before publishing",
+      //   });
+      // }
 
       // Set status based on user role
       let reportStatus = report.status;
@@ -579,7 +579,7 @@ router.put(
         versionId,
 
         {
-          status: "revision_required",
+          status: "Reverted for Changes",
           updatedBy: loggedInUser?._id,
           isNotify: true,
         },
