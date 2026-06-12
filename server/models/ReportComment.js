@@ -1,5 +1,39 @@
 const mongoose = require("mongoose");
 
+const NoteSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
+    role: {
+      type: String,
+      enum: ["manager", "analyst", "client", "admin"],
+      required: true,
+    },
+
+    message: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    replyType: {
+      type: String,
+      enum: ["internal", "client"],
+      default: "internal",
+    },
+
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: true }
+);
+
 const ReportCommentSchema = new mongoose.Schema(
   {
     projectId: {
@@ -36,11 +70,8 @@ const ReportCommentSchema = new mongoose.Schema(
       default: null,
     },
 
-    managerNote: {
-      type: String,
-      default: null,
-    },
-    
+    notes: [NoteSchema],
+
     status: {
       type: String,
       enum: ["open", "resolved"],
@@ -57,20 +88,10 @@ const ReportCommentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
-
-    createdAt: {
-      type: Date,
-      default: Date.now,
-    },
-
-    updatedAt: {
-      type: Date,
-      default: Date.now,
-    },
   },
   {
     timestamps: true,
-  },
+  }
 );
 
 module.exports = mongoose.model("ReportComment", ReportCommentSchema);

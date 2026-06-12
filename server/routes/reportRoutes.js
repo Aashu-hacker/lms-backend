@@ -115,7 +115,7 @@ router.get(
       if (!report) {
         // Return clean fallback defaults so frontend state initialization works smoothly
         return res.status(200).json({
-          reportName: "New Dynamic Report Workspace",
+          reportName: "",
           header: {
             logo: "",
             title: "",
@@ -124,7 +124,7 @@ router.get(
             date: new Date().toISOString().split("T")[0],
           },
           footer: {
-            text: "Bionivid Analytical Sequence Output — All Rights Reserved.",
+            text: "2026 — All Rights Reserved.",
             pageNumbering: true,
             confidentialTag: true,
           },
@@ -141,44 +141,39 @@ router.get(
 // ==========================================================
 // 2. PUT (SAVE / UPDATE) REPORT BY ID & VERSION
 // ==========================================================
-router.put(
-  "/:id/versions/:versionId",
-  auth,
-  role("admin", "manager", "analyst"),
-  async (req, res) => {
-    try {
-      const { id, versionId } = req.params;
-      const { reportName, header, footer, sections, status } = req.body;
+router.put("/:id/versions/:versionId", async (req, res) => {
+  try {
+    const { id, versionId } = req.params;
+    const { reportName, header, footer, sections, status } = req.body;
 
-      // upsert: true makes this single endpoint handle both continuous saving and creation safely
-      const updatedReport = await ComprehensiveReport.findOneAndUpdate(
-        { projectId: id, versionId: versionId },
-        {
-          $set: {
-            reportName,
-            header,
-            footer,
-            sections,
-            status: status || "draft",
-          },
+    // upsert: true makes this single endpoint handle both continuous saving and creation safely
+    const updatedReport = await ComprehensiveReport.findOneAndUpdate(
+      { projectId: id, versionId: versionId },
+      {
+        $set: {
+          reportName,
+          header,
+          footer,
+          sections,
+          status: status || "draft",
         },
-        { new: true, upsert: true, runValidators: true },
-      );
+      },
+      { new: true, upsert: true, runValidators: true },
+    );
 
-      return res.status(200).json({
-        success: true,
-        message: "Workspace saved and synchronized successfully",
-        data: updatedReport,
-      });
-    } catch (err) {
-      return res.status(500).json({
-        success: false,
-        error: "Update engine operational exception",
-        detail: err.message,
-      });
-    }
-  },
-);
+    return res.status(200).json({
+      success: true,
+      message: "Workspace saved and synchronized successfully",
+      data: updatedReport,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: "Update engine operational exception",
+      detail: err.message,
+    });
+  }
+});
 
 // ==========================================================
 // 3. DELETE SPECIFIC VERSION INSTANCE
@@ -298,29 +293,27 @@ const getSectionHeight = (elements = []) => {
   return Math.max(maxBottom + 80, 500);
 };
 
-router.get(
-  "/:versionId/preview",
-  async (req, res) => {
-    try {
-      const report = await ComprehensiveReport.findOne({
-        versionId: req.params.versionId,
-      });
-      if (!report)
-        return res
-          .status(404)
-          .send("<h1>Report Template Draft Layer Not Found</h1>");
+router.get("/:versionId/preview", async (req, res) => {
+  try {
+    const report = await ComprehensiveReport.findOne({
+      versionId: req.params.versionId,
+    });
+    if (!report)
+      return res
+        .status(404)
+        .send("<h1>Report Template Draft Layer Not Found</h1>");
 
-      // Construct loop iteration through multi-page form layout mapping blocks
-      let sectionHtmlCards = report.sections
-        .map((sec, sIdx) => {
-          // Map inner interactive free-form canvas elements dynamically using computed bounding boxes
-          let elementLayers = sec.elements
-            .map((el) => {
-              let nodePayload = "";
+    // Construct loop iteration through multi-page form layout mapping blocks
+    let sectionHtmlCards = report.sections
+      .map((sec, sIdx) => {
+        // Map inner interactive free-form canvas elements dynamically using computed bounding boxes
+        let elementLayers = sec.elements
+          .map((el) => {
+            let nodePayload = "";
 
-              if (el.type === "text") {
-                // --- FORMATTING TOOLBAR INLINE STYLE COMPLIANCE BUILDER ---
-                let inlineStyleStyles = `
+            if (el.type === "text") {
+              // --- FORMATTING TOOLBAR INLINE STYLE COMPLIANCE BUILDER ---
+              let inlineStyleStyles = `
             margin: 0; 
             font-size: 14px; 
             line-height: 1.6; 
@@ -330,49 +323,49 @@ router.get(
             font-style: ${el.isItalic ? "italic" : "normal"};
           `.trim();
 
-                nodePayload = el.isBullet
-                  ? `<ul style="margin:0; padding-left:20px;"><li style="${inlineStyleStyles}">${el.textContent}</li></ul>`
-                  : `<p style="${inlineStyleStyles}">${el.textContent}</p>`;
-              } else if (el.type === "image") {
-                // --- FIX FOR BROKEN BLOB PREVIEWS ---
-                // Falls back to a clean data graphic placeholder if the URL state is missing or empty
-                let resolvedImgSource =
-                  el.imageUrl ||
-                  "https://via.placeholder.com/400x200?text=No+Data+Graphic";
+              nodePayload = el.isBullet
+                ? `<ul style="margin:0; padding-left:20px;"><li style="${inlineStyleStyles}">${el.textContent}</li></ul>`
+                : `<p style="${inlineStyleStyles}">${el.textContent}</p>`;
+            } else if (el.type === "image") {
+              // --- FIX FOR BROKEN BLOB PREVIEWS ---
+              // Falls back to a clean data graphic placeholder if the URL state is missing or empty
+              let resolvedImgSource =
+                el.imageUrl ||
+                "https://via.placeholder.com/400x200?text=No+Data+Graphic";
 
-                nodePayload = `
+              nodePayload = `
               <div style="text-align: ${el.imageAlignment?.toLowerCase() || "center"}; width: 100%;">
                 <img src="${resolvedImgSource}" style="max-width:100%; height:auto; border-radius:4px; display:inline-block;" />
                 ${el.imageLegend ? `<div class="legend-box" style="font-size:11px; font-style:italic; color:#4a5568; margin-top:4px;"><b>${el.imageLegend}</b></div>` : ""}
                 ${el.imageDescription ? `<p style="font-size:12px; color:#718096; margin-top:2px;">${el.imageDescription}</p>` : ""}
               </div>`;
-              } else if (el.type === "table") {
-                let rowsMarkup = el.tableData
-                  .map(
-                    (row, rIdx) => `
+            } else if (el.type === "table") {
+              let rowsMarkup = el.tableData
+                .map(
+                  (row, rIdx) => `
             <tr style="background: ${rIdx === 0 ? "#f1f5f9" : "transparent"}; font-weight: ${rIdx === 0 ? "bold" : "normal"}; border-bottom: 1px solid #e2e8f0;">
               ${row.map((cell) => `<td style="padding: 6px 8px; border: 1px solid #cbd5e0; text-align:center; color:#334155;">${cell || ""}</td>`).join("")}
             </tr>`,
-                  )
-                  .join("");
+                )
+                .join("");
 
-                nodePayload = `
+              nodePayload = `
           <div style="width:100%; height:100%; overflow-x:auto;">
             <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:6px;">${rowsMarkup}</table>
             ${el.tableLegend ? `<div style="font-size:11px; font-style:italic; color:#4a5568;"><b>${el.tableLegend}</b></div>` : ""}
             ${el.tableDescription ? `<p style="font-size:12px; color:#718096; margin:0;">${el.tableDescription}</p>` : ""}
           </div>`;
-              }
+            }
 
-              // Return element structural box with absolute dimensions scaled to preview scale matrix definitions
-              return `
+            // Return element structural box with absolute dimensions scaled to preview scale matrix definitions
+            return `
         <div style="position: absolute; left: ${el.x}px; top: ${el.y}px; width: ${el.w}px; height: ${el.h}px; z-index: ${el.zIndex}; overflow: hidden; box-sizing: border-box; padding: 4px;">
           ${nodePayload}
         </div>`;
-            })
-            .join("");
+          })
+          .join("");
 
-          return `
+        return `
     <div class="report-card" style="background:#ffffff; margin-bottom:40px; padding:30px; border-radius:8px; border-top: 6px solid #1a365d; box-shadow: 0 4px 6px rgba(0,0,0,0.05); position:relative; min-height:550px; box-sizing: border-box;">
       <div class="section-meta-header" style="margin-bottom:20px; border-bottom: 2px solid #e2e8f0; padding-bottom:10px;">
         <span style="font-size:11px; font-weight:bold; color:#3182ce; text-transform:uppercase;">SECTION MODULE #${sIdx + 1}</span>
@@ -383,11 +376,11 @@ router.get(
         ${elementLayers}
       </div>
     </div>`;
-        })
-        .join("");
+      })
+      .join("");
 
-      // Compile entire template layout string exactly matching standard structure reports architectures
-      const fullHtmlTemplate = `
+    // Compile entire template layout string exactly matching standard structure reports architectures
+    const fullHtmlTemplate = `
       <!DOCTYPE html>
       <html lang="en">
       <head>
@@ -429,25 +422,25 @@ router.get(
       </html>
     `;
 
-      res.status(200).send(fullHtmlTemplate);
-    } catch (err) {
-      res
-        .status(500)
-        .send(
-          `<h3>Preview compilation execution failed fatally: ${err.message}</h3>`,
-        );
-    }
-  },
-);
+    res.status(200).send(fullHtmlTemplate);
+  } catch (err) {
+    res
+      .status(500)
+      .send(
+        `<h3>Preview compilation execution failed fatally: ${err.message}</h3>`,
+      );
+  }
+});
 
 router.put(
   "/:id/versions/:versionId/publish",
   auth,
-  role("admin", "manager", "analyst"),
+  role("admin", "manager", "analyst", "client"),
   async (req, res) => {
     try {
       const { id, versionId } = req.params;
       const loggedInUser = req.body.user;
+
       const report = await ComprehensiveReport.findOne({
         projectId: id,
         versionId,
@@ -459,12 +452,6 @@ router.put(
           message: "Report version not found",
         });
       }
-      // if (report.status === "published") {
-      //   return res.status(400).json({
-      //     success: false,
-      //     message: "Version already published",
-      //   });
-      // }
 
       const unresolvedComments = await ReportComment.countDocuments({
         projectId: id,
@@ -479,54 +466,77 @@ router.put(
         });
       }
 
-      report.status = "published";
+      // Set status based on user role
+      let reportStatus = report.status;
+
+      switch (loggedInUser?.role) {
+        case "analyst":
+          reportStatus = "submitted for review";
+          break;
+
+        case "manager":
+          reportStatus = "approved for client review";
+          break;
+
+        case "client":
+          reportStatus = "published";
+          break;
+
+        case "admin":
+          reportStatus = "published";
+          break;
+
+        default:
+          return res.status(403).json({
+            success: false,
+            message: "Invalid role",
+          });
+      }
+
+      report.status = reportStatus;
       await report.save();
+
       const version = await ProjectVersion.findOneAndUpdate(
+        { _id: versionId },
         {
-          _id: versionId,
-        },
-        {
-          status: "published",
-          updatedBy: loggedInUser ? loggedInUser._id : null,
+          status: reportStatus,
+          updatedBy: loggedInUser?._id || null,
           isNotify: true,
         },
-        {
-          new: true,
-        },
+        { new: true },
       );
 
       const project = await Project.findById(id)
         .populate("manager", "_id name")
         .populate("analysts", "_id name");
+
       if (!project) {
         return res.status(404).json({
           success: false,
           message: "Project not found",
         });
       }
+
       const users = [project.manager?._id, project.analysts?.map((a) => a._id)]
         .flat()
         .filter(Boolean)
         .map(String);
 
       const uniqueUsers = [...new Set(users)];
+
       if (uniqueUsers.length) {
-        console.log(uniqueUsers);
-        const data = await createNotification({
+        await createNotification({
           users: uniqueUsers,
-          sender: loggedInUser ? loggedInUser._id : null,
+          sender: loggedInUser?._id || null,
           project: id,
-          type: "REPORT_PUBLISHED",
-          message: `${report.reportName}
-        (${report.versionId})
-        has been published.`,
+          type: "REPORT_STATUS_UPDATED",
+          message: `${report.reportName} (${report.versionId}) status changed to "${reportStatus}".`,
         });
-        console.log(data);
       }
 
       return res.status(200).json({
         success: true,
-        message: "Report version published successfully",
+        message: `Report status updated to "${reportStatus}" successfully`,
         data: {
           reportVersion: report.versionId,
           status: report.status,
@@ -570,9 +580,7 @@ router.put(
 
         {
           status: "revision_required",
-
           updatedBy: loggedInUser?._id,
-
           isNotify: true,
         },
       );
@@ -730,28 +738,56 @@ router.put(
   },
 );
 
-router.put(
-  "/report-comments/:id/note",
-  async (req, res) => {
-    try {
-      const comment = await ReportComment.findByIdAndUpdate(
-        req.params.id,
+router.put("/report-comments/:id/note", async (req, res) => {
+  try {
+    const { note, replyType} = req.body;
 
-        { managerNote: req.body.managerNote },
-
-        { new: true },
-      );
-
-      if (!comment) {
-        return res.status(404).json({ message: "Comment not found" });
-      }
-
-      res.json({ success: true, comment });
-    } catch (err) {
-      res.status(500).json({ message: err.message });
+    if (!note?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Note is required",
+      });
     }
-  },
-);
+
+    const comment = await ReportComment.findByIdAndUpdate(
+      req.params.id,
+      {
+        $push: {
+          notes: {
+            user: req.body.user_id,
+            role: req.body.role,
+            message: note.trim(),
+            replyType,
+            createdAt: new Date(),
+          },
+        },
+        updatedBy: req.body.user_id,
+      },
+      {
+        new: true,
+      },
+    )
+      .populate("notes.user", "name email")
+      .populate("createdBy", "name");
+
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        message: "Comment not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      comment,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+});
 
 router.delete(
   "/report-comments/:id",

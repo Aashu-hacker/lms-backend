@@ -1,171 +1,185 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const LayoutElementSchema = new mongoose.Schema({
-
   id: {
     type: String,
-    required: true
+    required: true,
   },
 
   type: {
     type: String,
-    enum: ['text', 'image', 'table'],
-    required: true
+    enum: ["text", "image", "table"],
+    required: true,
   },
 
   x: {
     type: Number,
-    default: 40
+    default: 40,
   },
 
   y: {
     type: Number,
-    default: 120
+    default: 120,
   },
 
   w: {
     type: Number,
-    default: 400
+    default: 400,
   },
 
   h: {
     type: Number,
-    default: 220
+    default: 220,
   },
 
   zIndex: {
     type: Number,
-    default: 1
+    default: 1,
   },
 
   /* TEXT */
 
   textContent: {
     type: String,
-    default: ''
+    default: "",
   },
 
   fontFamily: {
     type: String,
-    default: 'Arial'
+    default: "Arial",
   },
 
   fontSize: {
     type: Number,
-    default: 13
+    default: 13,
   },
 
   fontColor: {
     type: String,
-    default: '#000000'
+    default: "#000000",
   },
 
   highlightColor: {
     type: String,
-    default: 'transparent'
+    default: "transparent",
   },
 
   isBold: {
     type: Boolean,
-    default: false
+    default: false,
   },
 
   isItalic: {
     type: Boolean,
-    default: false
+    default: false,
   },
 
   isUnderline: {
     type: Boolean,
-    default: false
+    default: false,
   },
 
   isBullet: {
     type: Boolean,
-    default: false
+    default: false,
   },
 
   /* IMAGE */
 
   imageUrl: {
     type: String,
-    default: ''
+    default: "",
   },
 
   imageLegend: {
     type: String,
-    default: ''
+    default: "",
   },
 
   imageDescription: {
     type: String,
-    default: ''
+    default: "",
   },
 
   imageAlignment: {
     type: String,
-    enum: [
-      'Left',
-      'Center',
-      'Right'
-    ],
-    default: 'Left'
+    enum: ["Left", "Center", "Right"],
+    default: "Left",
   },
 
   /* TABLE */
 
   tableRowsCount: {
     type: Number,
-    default: 3
+    default: 3,
   },
 
   tableColsCount: {
     type: Number,
-    default: 3
+    default: 3,
   },
 
   tableData: {
     type: [[String]],
-    default: []
+    default: [],
   },
 
   tableLegend: {
     type: String,
-    default: ''
+    default: "",
   },
 
   tableDescription: {
     type: String,
-    default: ''
-  }
-
-})
+    default: "",
+  },
+});
 
 const CustomBuilderSectionSchema = new mongoose.Schema({
   id: { type: String, required: true },
-  title: { type: String, default: 'Untitled Analytical Section Block' },
-  description: { type: String, default: '' },
-  elements: [LayoutElementSchema] // Embedded canvas array list boundaries mapping
+  title: { type: String, default: "Untitled Analytical Section Block" },
+  description: { type: String, default: "" },
+  elements: [LayoutElementSchema], // Embedded canvas array list boundaries mapping
 });
 
-const ComprehensiveReportSchema = new mongoose.Schema({
-  projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: true },
-  versionId: { type: String, required: true, unique: true },
-  reportName: { type: String, default: 'Untitled Enterprise Report Workspace Studio Output' },
-  status: { type: String, enum: ['draft', 'published', 'sent_back'], default: 'draft' },
-  header: {
-    logo: { type: String, default: '' },
-    title: { type: String, default: '' },
-    subTitle: { type: String, default: '' },
-    analystName: { type: String, default: '' },
-    date: { type: String, default: '' }
+const ComprehensiveReportSchema = new mongoose.Schema(
+  {
+    projectId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Project",
+      required: true,
+    },
+    versionId: { type: String, required: true, unique: true },
+    reportName: {
+      type: String,
+      default: "Untitled Enterprise Report Workspace Studio Output",
+    },
+    status: {
+      type: String,
+      enum: [
+        "draft",
+        "submitted for review",
+        "approved for client review",
+        "published",
+        "sent_back",
+      ],
+      default: "draft",
+    },
+    header: {
+      logo: { type: String, default: "" },
+      title: { type: String, default: "" },
+      subTitle: { type: String, default: "" },
+      analystName: { type: String, default: "" },
+      date: { type: String, default: "" },
+    },
+    footer: {
+      text: { type: String, default: "" },
+      pageNumbering: { type: Boolean, default: true },
+      confidentialTag: { type: Boolean, default: true },
+    },
+    sections: [CustomBuilderSectionSchema],
   },
-  footer: {
-    text: { type: String, default: '' },
-    pageNumbering: { type: Boolean, default: true },
-    confidentialTag: { type: Boolean, default: true }
-  },
-  sections: [CustomBuilderSectionSchema]
-}, { timestamps: true });
+  { timestamps: true },
+);
 
-module.exports = mongoose.model('ReportVersion', ComprehensiveReportSchema);
+module.exports = mongoose.model("ReportVersion", ComprehensiveReportSchema);
