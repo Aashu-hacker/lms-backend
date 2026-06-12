@@ -23,6 +23,7 @@ exports.createProject = async (req, res) => {
       dueDate,
       manager,
       analysts,
+      clients,
       ngsApplications,
     } = req.body;
 
@@ -35,6 +36,7 @@ exports.createProject = async (req, res) => {
       dueDate,
       manager,
       analysts,
+      clients,
       ngsApplications,
       createdBy: req.user._id,
     });
@@ -49,7 +51,7 @@ exports.createProject = async (req, res) => {
     });
 
     // Step 3: Notify manager + analysts
-    const assignedUsers = [...(manager ? [manager] : []), ...(analysts || [])];
+    const assignedUsers = [...(manager ? [manager] : []), ...(analysts || []), ...(clients || [])];
 
     if (assignedUsers.length > 0) {
       await createNotification({
