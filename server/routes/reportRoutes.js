@@ -555,7 +555,7 @@ router.put(
 router.put(
   "/:id/versions/:versionId/send-back",
   auth,
-  role("admin", "manager", "analyst"),
+  role("admin", "manager", "analyst", "client"),
   async (req, res) => {
     try {
       const { id, versionId } = req.params;
